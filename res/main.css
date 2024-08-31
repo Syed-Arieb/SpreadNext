@@ -1,0 +1,14 @@
+/* Use QSS (Qt) */
+QWidget {
+    background-color: #2b2b2b;
+}
+QLabel {
+    color: white;
+    font-size: 20px;
+}
+QPushButton {
+    color: white;
+    font-size: 20px;
+    padding: 8px;
+    background-color: #2b2b2b;
+}
