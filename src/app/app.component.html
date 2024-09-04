@@ -1,7 +1,7 @@
 <div class="container">
   <header>
     <span class="title">{{title}}</span>
-    <input type="text" name="spread-title" id="spread-title" value="Untitled Spreadsheet">
+    <input type="text" name="spread-title" id="spread-title" value="Untitled Spreadsheet" autocomplete="off" spellcheck="false" placeholder="Spreadsheet Title">
   </header>
   <section class="actions">
     <span>File</span>
@@ -47,4 +47,6 @@
       <img src="/icons/color.svg" alt="" width="22" height="22">
     </span>
   </section>
+
+  <app-spreadsheet (cellChange)="onCellChange($event)" />
 </div>

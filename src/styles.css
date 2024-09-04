@@ -25,3 +25,15 @@ body.dark {
   background-color: #333;
   color: #f9f9f9;
 }
+
+.bold {
+  font-weight: bold;
+}
+
+.italic {
+  font-style: italic;
+}
+
+.underline {
+  text-decoration: underline;
+}

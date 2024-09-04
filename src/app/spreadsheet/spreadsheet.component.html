@@ -1,0 +1,24 @@
+<table class="spreadsheet">
+  <thead>
+    <tr>
+      <td *ngFor="let title of columnTitles">
+        <input type="text" class="bold" value="{{ title }}" />
+      </td>
+    </tr>
+  </thead>
+  <tbody>
+    <tr *ngFor="let i of rowIndices">
+      <td *ngFor="let j of columnIndices">
+        <input type="text" name="" id="" [(ngModel)]="cellData[i][j]" (ngModelChange)="onCellChange($event, i, j)"/>
+      </td>
+    </tr>
+  </tbody>
+  <div class="button-group">
+      <button (click)="addRow()">
+        Add Row
+    </button>
+      <button (click)="addColumn()">
+        Add Column
+    </button>
+  </div>
+</table>
