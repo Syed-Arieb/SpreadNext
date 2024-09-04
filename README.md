@@ -1,27 +1,53 @@
 # SpreadNext
 
-This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 18.2.1.
+SpreadNext is a web-based spreadsheet application built using Angular. This project provides a dynamic and interactive interface for managing and manipulating data in spreadsheet format.
 
-## Development server
+![SpreadNext Screenshot](https://github.com/user-attachments/assets/f14183e9-b087-46f6-bae9-dd3db116e028)
 
-Run `ng serve` for a dev server. Navigate to `http://localhost:4200/`. The application will automatically reload if you change any of the source files.
+## Table of Contents
 
-## Code scaffolding
+- [Introduction](#introduction)
+- [Features](#features)
+- [Installation](#installation)
+- [Development Server](#development-server)
+- [Contributing](#contributing)
+- [License](#license)
 
-Run `ng generate component component-name` to generate a new component. You can also use `ng generate directive|pipe|service|class|guard|interface|enum|module`.
+## Introduction
 
-## Build
+SpreadNext is an Angular-based project that offers a robust and user-friendly web-based spreadsheet solution. It provides various functionalities to handle data effectively, similar to popular spreadsheet applications but entirely in a web environment.
 
-Run `ng build` to build the project. The build artifacts will be stored in the `dist/` directory.
+## Features
 
-## Running unit tests
+- Interactive and dynamic spreadsheet interface
+- Real-time data manipulation and visualization
+- Supports various data formats and functions
+- Responsive design for optimal user experience across devices
 
-Run `ng test` to execute the unit tests via [Karma](https://karma-runner.github.io).
+## Installation
 
-## Running end-to-end tests
+To get started with SpreadNext, clone the repository and install the necessary dependencies.
 
-Run `ng e2e` to execute the end-to-end tests via a platform of your choice. To use this command, you need to first add a package that implements end-to-end testing capabilities.
+```bash
+git clone https://github.com/yourusername/spreadnext.git
+cd spreadnext
+npm install
+```
 
-## Further help
+## Development Server
 
-To get more help on the Angular CLI use `ng help` or go check out the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+To start the development server, run the following command:
+
+```bash
+ng serve
+```
+
+Navigate to http://localhost:4200/ in your browser. The application will automatically reload if you make any changes to the source files.
+
+## Contributing
+
+Contributions are welcome! If you'd like to contribute, please fork the repository, create a new branch for your feature or bugfix, and submit a pull request.
+
+## License
+
+This project is licensed under the MIT License.
