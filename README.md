@@ -29,7 +29,7 @@ SpreadNext is an Angular-based project that offers a robust and user-friendly we
 To get started with SpreadNext, clone the repository and install the necessary dependencies.
 
 ```bash
-git clone https://github.com/yourusername/spreadnext.git
+git clone https://github.com/Syed-Arieb/spreadnext.git
 cd spreadnext
 npm install
 ```
