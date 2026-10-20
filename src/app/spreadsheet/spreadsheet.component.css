@@ -326,6 +326,12 @@
   text-align: center;
 }
 
+.grid .col-header.in-selection,
+.grid .row-header.in-selection {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
 .grid .col-header.active,
 .grid .row-header.active {
   background: var(--accent-soft);
@@ -343,8 +349,12 @@
   cursor: cell;
 }
 
-.grid td.cell:hover {
+.grid td.cell:hover:not(.selected) {
   background: var(--surface-2);
+}
+
+.grid td.cell.selected {
+  background: var(--accent-soft);
 }
 
 .grid td.cell.active {
@@ -421,23 +431,27 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 30px;
-  padding: 5px 12px;
+  min-height: 28px;
+  padding: 4px 12px;
   background: var(--surface);
   border-top: 1px solid var(--border);
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
 }
 
-.status-cell {
+.status-address {
   color: var(--text);
   font-weight: 600;
 }
 
-.status-sep {
-  width: 1px;
-  height: 14px;
-  background: var(--border);
+.status-count {
+  padding-left: 10px;
+  border-left: 1px solid var(--border);
+}
+
+.status-summary {
+  color: var(--text-muted);
 }
 
 .status-spacer {

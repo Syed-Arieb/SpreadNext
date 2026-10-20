@@ -193,6 +193,7 @@
               class="col-header"
               scope="col"
               [class.active]="activeCell.column === column"
+              [class.in-selection]="isColumnInSelection(column)"
               [class.resizing]="resizingColumn === column"
             >
               {{ columnLabel(column) }}
@@ -212,15 +213,17 @@
       <tbody>
         @for (row of rowIndices; track row) {
           <tr>
-            <th class="row-header" scope="row" [class.active]="activeCell.row === row">{{ row + 1 }}</th>
+            <th class="row-header" scope="row" [class.active]="activeCell.row === row" [class.in-selection]="isRowInSelection(row)">{{ row + 1 }}</th>
             @for (column of columnIndices; track column) {
               <td
                 class="cell"
                 [class.active]="isActive(row, column)"
+                [class.selected]="isSelected(row, column)"
                 [class.editing]="isEditing(row, column)"
                 [attr.data-row]="row"
                 [attr.data-col]="column"
-                (click)="selectCell(row, column)"
+                (pointerdown)="startCellSelection($event, row, column)"
+                (pointerenter)="extendSelection(row, column)"
                 (dblclick)="startEdit()"
               >
                 @if (isEditing(row, column)) {
@@ -254,10 +257,13 @@
   </div>
 
   <footer class="statusbar" aria-live="polite">
-    <span class="status-cell">{{ activeAddress }}</span>
-    <span class="status-sep" aria-hidden="true"></span>
-    <span>{{ rows }} rows × {{ columns }} columns</span>
+    <span class="status-address">{{ selectionLabel }}</span>
+    @if (selectedCellCount > 1) {
+      <span class="status-count">{{ selectedCellCount }} cells</span>
+    }
     <span class="status-spacer"></span>
-    <span>{{ activeCellData.value || 'Ready' }}</span>
+    @if (selectionSummary) {
+      <span class="status-summary">{{ selectionSummary }}</span>
+    }
   </footer>
 </div>

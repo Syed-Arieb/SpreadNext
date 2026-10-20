@@ -137,7 +137,8 @@ summary:focus-visible {
     box-shadow: none !important;
   }
 
-  .grid td.cell.active {
+  .grid td.cell.active,
+  .grid td.cell.selected {
     background: transparent !important;
     box-shadow: none !important;
   }

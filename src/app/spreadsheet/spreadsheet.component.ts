@@ -108,6 +108,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   columnIndices: number[] = [];
 
   activeCell: Selection = { row: 0, column: 0 };
+  selectionAnchor: Selection = { row: 0, column: 0 };
   editingCell: Selection | null = null;
   draftValue = '';
   formulaValue = '';
@@ -118,6 +119,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   showGridlines = true;
   compactRows = false;
   resizingColumn: number | null = null;
+  selecting = false;
 
   private resizeStartX = 0;
   private resizeStartWidth = 0;
@@ -170,6 +172,56 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     return `${this.columnLabel(this.activeCell.column)}${this.activeCell.row + 1}`;
   }
 
+  get selectionLabel(): string {
+    const start = `${this.columnLabel(this.selectionLeft)}${this.selectionTop + 1}`;
+    const end = `${this.columnLabel(this.selectionRight)}${this.selectionBottom + 1}`;
+    return start === end ? start : `${start}:${end}`;
+  }
+
+  get selectedCellCount(): number {
+    return (this.selectionBottom - this.selectionTop + 1) *
+      (this.selectionRight - this.selectionLeft + 1);
+  }
+
+  get selectionSummary(): string {
+    if (this.selectedCellCount < 2) {
+      return '';
+    }
+
+    let sum = 0;
+    let count = 0;
+
+    this.forEachSelectedCell(cell => {
+      const value = Number(cell.value.trim());
+      if (cell.value.trim() !== '' && Number.isFinite(value)) {
+        sum += value;
+        count += 1;
+      }
+    });
+
+    if (count === 0) {
+      return '';
+    }
+
+    return `Sum ${this.formatNumber(sum)} · Avg ${this.formatNumber(sum / count)}`;
+  }
+
+  get selectionTop(): number {
+    return Math.min(this.selectionAnchor.row, this.activeCell.row);
+  }
+
+  get selectionBottom(): number {
+    return Math.max(this.selectionAnchor.row, this.activeCell.row);
+  }
+
+  get selectionLeft(): number {
+    return Math.min(this.selectionAnchor.column, this.activeCell.column);
+  }
+
+  get selectionRight(): number {
+    return Math.max(this.selectionAnchor.column, this.activeCell.column);
+  }
+
   get gridWidth(): number {
     return ROW_HEADER_WIDTH + this.columnWidths.reduce((total, width) => total + width, 0);
   }
@@ -184,6 +236,21 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
 
   isActive(row: number, column: number): boolean {
     return this.activeCell.row === row && this.activeCell.column === column;
+  }
+
+  isSelected(row: number, column: number): boolean {
+    return row >= this.selectionTop &&
+      row <= this.selectionBottom &&
+      column >= this.selectionLeft &&
+      column <= this.selectionRight;
+  }
+
+  isColumnInSelection(column: number): boolean {
+    return column >= this.selectionLeft && column <= this.selectionRight;
+  }
+
+  isRowInSelection(row: number): boolean {
+    return row >= this.selectionTop && row <= this.selectionBottom;
   }
 
   isEditing(row: number, column: number): boolean {
@@ -203,14 +270,42 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     return label;
   }
 
-  selectCell(row: number, column: number): void {
+  selectCell(row: number, column: number, extend = false): void {
     this.commitEdit('none', false);
-    this.activeCell = {
-      row: this.clamp(row, 0, this.rows - 1),
-      column: this.clamp(column, 0, this.columns - 1)
-    };
+    this.activeCell = this.clampSelection(row, column);
+    if (!extend) {
+      this.selectionAnchor = { ...this.activeCell };
+    }
     this.formulaValue = this.activeCellData.value;
     this.focusGrid();
+  }
+
+  startCellSelection(event: PointerEvent, row: number, column: number): void {
+    if (event.button !== 0 || (event.target as HTMLElement).closest('.cell-editor')) {
+      return;
+    }
+
+    this.selectCell(row, column, event.shiftKey);
+    this.selecting = true;
+  }
+
+  extendSelection(row: number, column: number): void {
+    if (!this.selecting) {
+      return;
+    }
+
+    this.activeCell = this.clampSelection(row, column);
+    this.formulaValue = this.activeCellData.value;
+  }
+
+  @HostListener('document:pointerup')
+  endSelection(): void {
+    this.selecting = false;
+  }
+
+  @HostListener('document:pointercancel')
+  cancelSelection(): void {
+    this.selecting = false;
   }
 
   startEdit(initialValue?: string): void {
@@ -219,6 +314,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     }
 
     const cell = this.activeCellData;
+    this.selectionAnchor = { ...this.activeCell };
     this.editingCell = { ...this.activeCell };
     this.draftValue = initialValue ?? cell.value;
     this.formulaValue = this.draftValue;
@@ -369,6 +465,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
       case 'Home':
         event.preventDefault();
         this.activeCell = { row: event.ctrlKey ? 0 : this.activeCell.row, column: 0 };
+        this.selectionAnchor = { ...this.activeCell };
         this.formulaValue = this.activeCellData.value;
         this.focusGrid();
         this.scrollActiveIntoView();
@@ -406,6 +503,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
       row: this.clamp(row, 0, this.rows - 1),
       column: this.clamp(column, 0, this.columns - 1)
     };
+    this.selectionAnchor = { ...this.activeCell };
     this.formulaValue = this.activeCellData.value;
     this.focusGrid();
     this.scrollActiveIntoView();
@@ -484,12 +582,19 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   }
 
   clearActiveCell(): void {
-    const cell = this.activeCellData;
-    if (cell.value === '') {
+    let changed = false;
+
+    this.forEachSelectedCell(cell => {
+      if (cell.value !== '') {
+        cell.value = '';
+        changed = true;
+      }
+    });
+
+    if (!changed) {
       return;
     }
 
-    cell.value = '';
     this.formulaValue = '';
     this.cellChange.emit({
       row: this.activeCell.row,
@@ -500,19 +605,24 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   }
 
   toggleStyle(style: 'bold' | 'italic' | 'underline' | 'strike'): void {
-    const cell = this.activeCellData;
-    cell.style[style] = !cell.style[style];
+    const next = !this.activeCellData.style[style];
+    this.forEachSelectedCell(cell => cell.style[style] = next);
     this.pushHistory();
   }
 
   setAlignment(align: CellAlign): void {
-    const cell = this.activeCellData;
-    if (cell.style.align === align) {
-      return;
-    }
+    let changed = false;
 
-    cell.style.align = align;
-    this.pushHistory();
+    this.forEachSelectedCell(cell => {
+      if (cell.style.align !== align) {
+        cell.style.align = align;
+        changed = true;
+      }
+    });
+
+    if (changed) {
+      this.pushHistory();
+    }
   }
 
   toggleGridlines(): void {
@@ -567,6 +677,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     this.columnWidths = this.normalizeColumnWidths([], this.columns);
     this.rebuildIndices();
     this.activeCell = { row: 0, column: 0 };
+    this.selectionAnchor = { row: 0, column: 0 };
     this.formulaValue = '';
     this.pushHistory();
     this.focusGrid();
@@ -604,6 +715,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     }
 
     const cell = this.activeCellData;
+    this.selectionAnchor = { ...this.activeCell };
     if (cell.value !== this.formulaValue) {
       cell.value = this.formulaValue;
       this.cellChange.emit({
@@ -670,6 +782,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
       row: this.clamp(this.activeCell.row, 0, this.rows - 1),
       column: this.clamp(this.activeCell.column, 0, this.columns - 1)
     };
+    this.selectionAnchor = { ...this.activeCell };
     this.formulaValue = this.activeCellData.value;
   }
 
@@ -777,5 +890,26 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
 
   private clamp(value: number, min: number, max: number): number {
     return Math.min(Math.max(value, min), max);
+  }
+
+  private clampSelection(row: number, column: number): Selection {
+    return {
+      row: this.clamp(row, 0, this.rows - 1),
+      column: this.clamp(column, 0, this.columns - 1)
+    };
+  }
+
+  private forEachSelectedCell(callback: (cell: Cell) => void): void {
+    for (let row = this.selectionTop; row <= this.selectionBottom; row += 1) {
+      for (let column = this.selectionLeft; column <= this.selectionRight; column += 1) {
+        callback(this.cellAt(row, column));
+      }
+    }
+  }
+
+  private formatNumber(value: number): string {
+    return Number.isInteger(value)
+      ? value.toLocaleString()
+      : value.toLocaleString(undefined, { maximumFractionDigits: 2 });
   }
 }
