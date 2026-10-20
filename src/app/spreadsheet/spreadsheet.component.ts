@@ -21,7 +21,18 @@ import {
   cilAlignRight,
   cilArrowRight,
   cilBold,
+  cilBorderAll,
+  cilBorderBottom,
+  cilBorderClear,
+  cilBorderHorizontal,
+  cilBorderInner,
+  cilBorderLeft,
+  cilBorderOuter,
+  cilBorderRight,
+  cilBorderTop,
+  cilBorderVertical,
   cilCloudDownload,
+  cilColorFill,
   cilDescription,
   cilGrid,
   cilItalic,
@@ -32,6 +43,23 @@ import {
   cilX
 } from '@coreui/icons';
 import { IconDirective } from '@coreui/icons-angular';
+import {
+  BorderLineStyle,
+  BorderPreset,
+  BorderSide,
+  CellBorder,
+  CellBorders,
+  DiagonalSide,
+  DIAGONAL_SIDES,
+  BORDER_SIDES,
+  applyBorderPreset,
+  borderCss,
+  cloneCellBorders,
+  createCellBorders,
+  diagonalGradient,
+  normalizeCellBorders,
+  normalizeColor
+} from './cell-borders';
 import { exportFileName } from './export-file-name';
 import { FormulaEngine } from './formula-engine';
 import { FORMULA_FUNCTIONS, FormulaFunction } from './formula-functions';
@@ -46,6 +74,8 @@ export interface CellStyle {
   underline: boolean;
   strike: boolean;
   align: CellAlign;
+  background: string | null;
+  borders: CellBorders;
 }
 
 export interface Cell {
@@ -98,8 +128,46 @@ const DEFAULT_STYLE: CellStyle = {
   italic: false,
   underline: false,
   strike: false,
-  align: 'left'
+  align: 'left',
+  background: null,
+  borders: createCellBorders()
 };
+
+const DEFAULT_BORDER_COLOR = '#64748b';
+const FILL_COLORS = [
+  '#ffffff', '#f8fafc', '#f1f5f9', '#e2e8f0', '#cbd5e1', '#94a3b8', '#64748b',
+  '#fef2f2', '#fee2e2', '#fecaca', '#fca5a5', '#f87171', '#ef4444', '#dc2626',
+  '#fff7ed', '#ffedd5', '#fed7aa', '#fdba74', '#fb923c', '#f97316', '#ea580c',
+  '#fefce8', '#fef9c3', '#fef08a', '#fde047', '#facc15', '#eab308', '#ca8a04',
+  '#f0fdf4', '#dcfce7', '#bbf7d0', '#86efac', '#4ade80', '#22c55e', '#16a34a',
+  '#eff6ff', '#dbeafe', '#bfdbfe', '#93c5fd', '#60a5fa', '#3b82f6', '#2563eb',
+  '#faf5ff', '#f3e8ff', '#e9d5ff', '#d8b4fe', '#c084fc', '#a855f7', '#9333ea'
+];
+
+function cloneCellStyle(style: CellStyle): CellStyle {
+  return {
+    ...style,
+    borders: cloneCellBorders(style.borders)
+  };
+}
+
+function contrastTextColor(background: string | null): string | null {
+  if (!background) {
+    return null;
+  }
+
+  const hex = normalizeColor(background);
+  if (!hex) {
+    return null;
+  }
+
+  const red = parseInt(hex.slice(1, 3), 16);
+  const green = parseInt(hex.slice(3, 5), 16);
+  const blue = parseInt(hex.slice(5, 7), 16);
+  const luminance = red * 0.299 + green * 0.587 + blue * 0.114;
+
+  return luminance > 150 ? '#0f172a' : '#f8fafc';
+}
 
 @Component({
   selector: 'app-spreadsheet',
@@ -126,7 +194,9 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     cilAlignRight,
     cilArrowRight,
     cilBold,
+    cilBorderAll,
     cilCloudDownload,
+    cilColorFill,
     cilDescription,
     cilGrid,
     cilItalic,
@@ -136,6 +206,30 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     cilUnderline,
     cilX
   };
+
+  readonly fillColors = FILL_COLORS;
+  readonly borderLineStyles: { value: BorderLineStyle; label: string }[] = [
+    { value: 'thin', label: 'Thin' },
+    { value: 'medium', label: 'Medium' },
+    { value: 'thick', label: 'Thick' },
+    { value: 'dashed', label: 'Dashed' },
+    { value: 'dotted', label: 'Dotted' },
+    { value: 'double', label: 'Double' }
+  ];
+  readonly borderPresets: { id: BorderPreset; label: string; icon?: string[] }[] = [
+    { id: 'all', label: 'All', icon: cilBorderAll },
+    { id: 'outer', label: 'Outer', icon: cilBorderOuter },
+    { id: 'inner', label: 'Inner', icon: cilBorderInner },
+    { id: 'horizontal', label: 'Horizontal', icon: cilBorderHorizontal },
+    { id: 'vertical', label: 'Vertical', icon: cilBorderVertical },
+    { id: 'top', label: 'Top', icon: cilBorderTop },
+    { id: 'right', label: 'Right', icon: cilBorderRight },
+    { id: 'bottom', label: 'Bottom', icon: cilBorderBottom },
+    { id: 'left', label: 'Left', icon: cilBorderLeft },
+    { id: 'diagonalDown', label: 'Diagonal' },
+    { id: 'diagonalUp', label: 'Diagonal up' },
+    { id: 'none', label: 'None', icon: cilBorderClear }
+  ];
 
   cellData: Cell[][] = [];
   displayValues: string[][] = [];
@@ -163,6 +257,11 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   selecting = false;
   exportMenuOpen = false;
   confirmNewSheetOpen = false;
+  fillDialogOpen = false;
+  borderDialogOpen = false;
+  fillPickerValue = '#fde047';
+  borderLineStyle: BorderLineStyle = 'thin';
+  borderColor = DEFAULT_BORDER_COLOR;
 
   private readonly engine = inject(FormulaEngine);
   private formulaSource: 'cell' | 'formula' | null = null;
@@ -175,6 +274,8 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   private cachedFormulaReferences: FormulaReference[] = [];
   private exportReturnFocus: HTMLElement | null = null;
   private newSheetReturnFocus: HTMLElement | null = null;
+  private fillReturnFocus: HTMLElement | null = null;
+  private borderReturnFocus: HTMLElement | null = null;
 
   private resizeStartX = 0;
   private resizeStartWidth = 0;
@@ -189,6 +290,10 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   @ViewChild('exportDialog') private exportDialogRef?: ElementRef<HTMLElement>;
   @ViewChild('newSheetCancel') private newSheetCancelRef?: ElementRef<HTMLButtonElement>;
   @ViewChild('newSheetDialog') private newSheetDialogRef?: ElementRef<HTMLElement>;
+  @ViewChild('fillFirst') private fillFirstRef?: ElementRef<HTMLButtonElement>;
+  @ViewChild('fillDialog') private fillDialogRef?: ElementRef<HTMLElement>;
+  @ViewChild('borderFirst') private borderFirstRef?: ElementRef<HTMLButtonElement>;
+  @ViewChild('borderDialog') private borderDialogRef?: ElementRef<HTMLElement>;
   @ViewChildren('menu') private menuRefs?: QueryList<ElementRef<HTMLDetailsElement>>;
 
   private history: SheetSnapshot[] = [];
@@ -234,6 +339,11 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
 
   get activeCellData(): Cell {
     return this.cellAt(this.activeCell.row, this.activeCell.column);
+  }
+
+  get activeCellHasBorders(): boolean {
+    return [...BORDER_SIDES, ...DIAGONAL_SIDES]
+      .some(side => this.activeCellData.style.borders[side] !== null);
   }
 
   get activeAddress(): string {
@@ -307,6 +417,23 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     }
 
     return this.displayValues[row]?.[column] ?? cell.value;
+  }
+
+  cellBorderCss(row: number, column: number, side: BorderSide): string | null {
+    return borderCss(this.cellAt(row, column).style.borders[side]);
+  }
+
+  cellDiagonalCss(row: number, column: number, side: DiagonalSide): string | null {
+    return diagonalGradient(side, this.cellAt(row, column).style.borders[side]);
+  }
+
+  cellValueColor(row: number, column: number): string | null {
+    const background = this.cellAt(row, column).style.background;
+    if (!background || this.displayAt(row, column).startsWith('#')) {
+      return null;
+    }
+
+    return contrastTextColor(background);
   }
 
   cellAt(row: number, column: number): Cell {
@@ -1224,6 +1351,126 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     }
   }
 
+  openFillDialog(): void {
+    if (this.fillDialogOpen || this.borderDialogOpen || this.confirmNewSheetOpen || this.exportMenuOpen) {
+      return;
+    }
+
+    this.fillReturnFocus = this.beginStyleDialog();
+    this.fillPickerValue = this.activeCellData.style.background ?? '#fde047';
+    this.fillDialogOpen = true;
+    setTimeout(() => this.fillFirstRef?.nativeElement.focus({ preventScroll: true }));
+  }
+
+  closeFillDialog(): void {
+    if (!this.fillDialogOpen) {
+      return;
+    }
+
+    this.fillDialogOpen = false;
+    const target = this.fillReturnFocus;
+    this.fillReturnFocus = null;
+    this.restoreDialogFocus(target);
+  }
+
+  onFillPickerInput(event: Event): void {
+    this.fillPickerValue = (event.target as HTMLInputElement).value;
+  }
+
+  onFillDialogKeydown(event: KeyboardEvent): void {
+    this.handleStyleDialogKeydown(event, this.fillDialogRef?.nativeElement, () => this.closeFillDialog());
+  }
+
+  applyFill(color: string | null): void {
+    const background = color ? normalizeColor(color) : null;
+    if (color && !background) {
+      return;
+    }
+
+    let changed = false;
+    this.forEachSelectedCell(cell => {
+      if (cell.style.background !== background) {
+        cell.style.background = background;
+        changed = true;
+      }
+    });
+
+    if (changed) {
+      this.pushHistory();
+    }
+
+    this.fillDialogOpen = false;
+    this.fillReturnFocus = null;
+    this.focusGrid();
+  }
+
+  openBorderDialog(): void {
+    if (this.fillDialogOpen || this.borderDialogOpen || this.confirmNewSheetOpen || this.exportMenuOpen) {
+      return;
+    }
+
+    this.borderReturnFocus = this.beginStyleDialog();
+    const border = [...BORDER_SIDES, ...DIAGONAL_SIDES]
+      .map(side => this.activeCellData.style.borders[side])
+      .find((value): value is CellBorder => value !== null);
+    this.borderLineStyle = border?.style ?? 'thin';
+    this.borderColor = border?.color ?? DEFAULT_BORDER_COLOR;
+    this.borderDialogOpen = true;
+    setTimeout(() => this.borderFirstRef?.nativeElement.focus({ preventScroll: true }));
+  }
+
+  closeBorderDialog(): void {
+    if (!this.borderDialogOpen) {
+      return;
+    }
+
+    this.borderDialogOpen = false;
+    const target = this.borderReturnFocus;
+    this.borderReturnFocus = null;
+    this.restoreDialogFocus(target);
+  }
+
+  onBorderStyleChange(event: Event): void {
+    this.borderLineStyle = (event.target as HTMLSelectElement).value as BorderLineStyle;
+  }
+
+  onBorderColorInput(event: Event): void {
+    this.borderColor = (event.target as HTMLInputElement).value;
+  }
+
+  onBorderDialogKeydown(event: KeyboardEvent): void {
+    this.handleStyleDialogKeydown(event, this.borderDialogRef?.nativeElement, () => this.closeBorderDialog());
+  }
+
+  applyBorderPreset(preset: BorderPreset): void {
+    const border: CellBorder | null = preset === 'none'
+      ? null
+      : {
+        style: this.borderLineStyle,
+        color: normalizeColor(this.borderColor) ?? DEFAULT_BORDER_COLOR
+      };
+    const range = {
+      top: this.selectionTop,
+      right: this.selectionRight,
+      bottom: this.selectionBottom,
+      left: this.selectionLeft
+    };
+    const changed = applyBorderPreset(
+      (row, column) => this.cellData[row]?.[column]?.style.borders ?? null,
+      range,
+      preset,
+      border
+    );
+
+    if (changed) {
+      this.pushHistory();
+    }
+
+    this.borderDialogOpen = false;
+    this.borderReturnFocus = null;
+    this.focusGrid();
+  }
+
   toggleGridlines(): void {
     this.showGridlines = !this.showGridlines;
   }
@@ -1545,7 +1792,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
       columns: this.columns,
       cells: this.cellData.map(row => row.map(cell => ({
         value: cell.value,
-        style: { ...cell.style }
+        style: cloneCellStyle(cell.style)
       }))),
       columnWidths: [...this.columnWidths]
     };
@@ -1556,7 +1803,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     this.columns = snapshot.columns;
     this.cellData = snapshot.cells.map(row => row.map(cell => ({
       value: cell.value,
-      style: { ...cell.style }
+      style: cloneCellStyle(cell.style)
     })));
     this.columnWidths = this.normalizeColumnWidths(snapshot.columnWidths, this.columns);
     this.rebuildIndices();
@@ -1581,7 +1828,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   }
 
   private createCell(): Cell {
-    return { value: '', style: { ...DEFAULT_STYLE } };
+    return { value: '', style: cloneCellStyle(DEFAULT_STYLE) };
   }
 
   private normalizeCell(raw: unknown): Cell {
@@ -1595,7 +1842,9 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
         italic: style.italic === true,
         underline: style.underline === true,
         strike: style.strike === true,
-        align: style.align === 'center' || style.align === 'right' ? style.align : 'left'
+        align: style.align === 'center' || style.align === 'right' ? style.align : 'left',
+        background: normalizeColor(style.background),
+        borders: normalizeCellBorders(style.borders)
       }
     };
   }
@@ -1704,6 +1953,62 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
 
   private focusGrid(): void {
     setTimeout(() => this.gridRef?.nativeElement.focus({ preventScroll: true }));
+  }
+
+  private beginStyleDialog(): HTMLElement | null {
+    const active = document.activeElement;
+    const target = active instanceof HTMLElement ? active : null;
+    this.commitEdit('none', false);
+
+    if (this.formulaSource === 'formula') {
+      this.commitFormula();
+    }
+
+    this.closeMenus();
+    this.hideSuggestions();
+    return target;
+  }
+
+  private restoreDialogFocus(target: HTMLElement | null): void {
+    if (target?.isConnected && target.getClientRects().length > 0) {
+      target.focus();
+    } else {
+      this.focusGrid();
+    }
+  }
+
+  private handleStyleDialogKeydown(
+    event: KeyboardEvent,
+    dialog: HTMLElement | undefined,
+    close: () => void
+  ): void {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      close();
+      return;
+    }
+
+    if (event.key !== 'Tab' || !dialog) {
+      return;
+    }
+
+    const focusable = Array.from(
+      dialog.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled])')
+    ).filter(element => element.getClientRects().length > 0);
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+
+    if (!first || !last) {
+      return;
+    }
+
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   }
 
   private scrollActiveIntoView(): void {

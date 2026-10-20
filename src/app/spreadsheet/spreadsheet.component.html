@@ -106,6 +106,15 @@
           <span class="menu-check">{{ activeCellData.style.align === 'right' ? '✓' : '' }}</span>
           Align right
         </button>
+        <hr />
+        <button type="button" (click)="openFillDialog()">
+          <span class="menu-check"></span>
+          Fill color...
+        </button>
+        <button type="button" (click)="openBorderDialog()">
+          <span class="menu-check"></span>
+          Cell borders...
+        </button>
       </div>
     </details>
   </nav>
@@ -148,6 +157,47 @@
       </button>
       <button type="button" class="tool" title="Align right" aria-label="Align right" [class.is-active]="activeCellData.style.align === 'right'" (click)="setAlignment('right')">
         <svg [cIcon]="icons.cilAlignRight" aria-hidden="true"></svg>
+      </button>
+    </div>
+
+    <span class="tool-divider" aria-hidden="true"></span>
+
+    <div class="tool-group">
+      <button
+        type="button"
+        class="tool fill-tool"
+        title="Fill color"
+        aria-label="Fill color"
+        [class.is-active]="activeCellData.style.background"
+        (click)="openFillDialog()"
+      >
+        <svg [cIcon]="icons.cilColorFill" aria-hidden="true"></svg>
+        <span
+          class="fill-swatch"
+          aria-hidden="true"
+          [style.background-color]="activeCellData.style.background"
+        ></span>
+      </button>
+      <button
+        type="button"
+        class="tool"
+        title="Cell borders"
+        aria-label="Cell borders"
+        [class.is-active]="activeCellHasBorders"
+        (click)="openBorderDialog()"
+      >
+        <svg [cIcon]="icons.cilBorderAll" aria-hidden="true"></svg>
+      </button>
+      <button
+        type="button"
+        class="tool"
+        title="Show default borders"
+        aria-label="Show default borders"
+        [class.is-active]="showGridlines"
+        [attr.aria-pressed]="showGridlines"
+        (click)="toggleGridlines()"
+      >
+        <svg [cIcon]="icons.cilGrid" aria-hidden="true"></svg>
       </button>
     </div>
 
@@ -250,8 +300,18 @@
                 [class.selected]="isSelected(row, column)"
                 [class.reference]="isReferenceCell(row, column)"
                 [class.editing]="isEditing(row, column)"
+                [style.--cell-fill]="cellAt(row, column).style.background"
+                [style.border-top]="cellBorderCss(row, column, 'top')"
+                [style.border-right]="cellBorderCss(row, column, 'right')"
+                [style.border-bottom]="cellBorderCss(row, column, 'bottom')"
+                [style.border-left]="cellBorderCss(row, column, 'left')"
+                [style.--diag-down]="cellDiagonalCss(row, column, 'diagonalDown')"
+                [style.--diag-up]="cellDiagonalCss(row, column, 'diagonalUp')"
+                [class.has-diagonal-down]="cellAt(row, column).style.borders.diagonalDown !== null"
+                [class.has-diagonal-up]="cellAt(row, column).style.borders.diagonalUp !== null"
                 [attr.data-row]="row"
                 [attr.data-col]="column"
+
                 (pointerdown)="startCellSelection($event, row, column)"
                 (pointerenter)="extendSelection(row, column)"
                 (dblclick)="startEdit()"
@@ -290,6 +350,7 @@
                     [class.strike]="cellAt(row, column).style.strike"
                     [class.error]="displayAt(row, column).startsWith('#')"
                     [style.text-align]="cellAt(row, column).style.align"
+                    [style.color]="cellValueColor(row, column)"
                   >{{ displayAt(row, column) }}</span>
                 }
               </td>
@@ -465,6 +526,154 @@
           >
             New sheet
           </button>
+        </div>
+      </section>
+    </div>
+  }
+
+  @if (fillDialogOpen) {
+    <div class="export-backdrop" (pointerdown)="closeFillDialog()">
+      <section
+        #fillDialog
+        class="export-menu style-menu"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="fill-title"
+        (pointerdown)="$event.stopPropagation()"
+        (keydown)="onFillDialogKeydown($event)"
+      >
+        <header class="export-header">
+          <span class="export-heading-icon" aria-hidden="true">
+            <svg [cIcon]="icons.cilColorFill"></svg>
+          </span>
+          <div class="export-heading">
+            <h2 id="fill-title">Fill color</h2>
+          </div>
+          <button
+            type="button"
+            class="export-close"
+            aria-label="Close fill dialog"
+            (click)="closeFillDialog()"
+          >
+            <svg [cIcon]="icons.cilX" aria-hidden="true"></svg>
+          </button>
+        </header>
+
+        <div class="fill-grid" role="group" aria-label="Fill colors">
+          @for (color of fillColors; track color) {
+            <button
+              #fillFirst
+              type="button"
+              class="fill-option"
+              [class.is-selected]="activeCellData.style.background === color"
+              [attr.aria-label]="'Fill ' + color"
+              [attr.title]="color"
+              [style.background-color]="color"
+              (click)="applyFill(color)"
+            ></button>
+          }
+        </div>
+
+        <div class="style-color-row">
+          <label class="style-color-label" for="custom-fill">Custom</label>
+          <input
+            id="custom-fill"
+            class="style-color-input"
+            type="color"
+            [value]="fillPickerValue"
+            (input)="onFillPickerInput($event)"
+            (change)="applyFill(fillPickerValue)"
+          />
+          <span class="style-color-value">{{ fillPickerValue }}</span>
+          <button type="button" class="confirm-button style-clear-button" (click)="applyFill(null)">
+            No fill
+          </button>
+        </div>
+
+        <div class="confirm-actions">
+          <button type="button" class="confirm-button" (click)="closeFillDialog()">Cancel</button>
+        </div>
+      </section>
+    </div>
+  }
+
+  @if (borderDialogOpen) {
+    <div class="export-backdrop" (pointerdown)="closeBorderDialog()">
+      <section
+        #borderDialog
+        class="export-menu"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="border-title"
+        (pointerdown)="$event.stopPropagation()"
+        (keydown)="onBorderDialogKeydown($event)"
+      >
+        <header class="export-header">
+          <span class="export-heading-icon" aria-hidden="true">
+            <svg [cIcon]="icons.cilBorderAll"></svg>
+          </span>
+          <div class="export-heading">
+            <h2 id="border-title">Cell borders</h2>
+          </div>
+          <button
+            type="button"
+            class="export-close"
+            aria-label="Close border dialog"
+            (click)="closeBorderDialog()"
+          >
+            <svg [cIcon]="icons.cilX" aria-hidden="true"></svg>
+          </button>
+        </header>
+
+        <p class="style-copy">Applies to the selected cells.</p>
+
+        <div class="border-layout">
+          <div class="border-preset-grid" role="group" aria-label="Border presets">
+            @for (preset of borderPresets; track preset.id) {
+              <button
+                #borderFirst
+                type="button"
+                class="border-preset"
+                [attr.aria-label]="preset.label + ' borders'"
+                (click)="applyBorderPreset(preset.id)"
+              >
+                @if (preset.icon) {
+                  <svg [cIcon]="preset.icon" aria-hidden="true"></svg>
+                } @else {
+                  <span
+                    class="border-diagonal"
+                    [class.is-up]="preset.id === 'diagonalUp'"
+                    aria-hidden="true"
+                  ></span>
+                }
+                <span>{{ preset.label }}</span>
+              </button>
+            }
+          </div>
+
+          <div class="border-options">
+            <label class="style-field">
+              <span>Style</span>
+              <select [value]="borderLineStyle" (change)="onBorderStyleChange($event)">
+                @for (lineStyle of borderLineStyles; track lineStyle.value) {
+                  <option [value]="lineStyle.value">{{ lineStyle.label }}</option>
+                }
+              </select>
+            </label>
+            <label class="style-field">
+              <span>Color</span>
+              <input
+                class="style-color-input"
+                type="color"
+                [value]="borderColor"
+                (input)="onBorderColorInput($event)"
+              />
+            </label>
+          </div>
+        </div>
+
+        <div class="confirm-actions">
+          <button type="button" class="confirm-button" (click)="closeBorderDialog()">Cancel</button>
         </div>
       </section>
     </div>
