@@ -93,12 +93,22 @@ export class AppComponent {
       return;
     }
 
-    if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 's') {
+    if (!(event.ctrlKey || event.metaKey)) {
       return;
     }
 
-    event.preventDefault();
-    this.sheetRef?.openExportMenu();
+    const key = event.key.toLowerCase();
+
+    if (key === 's') {
+      event.preventDefault();
+      this.sheetRef?.openExportMenu();
+      return;
+    }
+
+    if (key === 'n') {
+      event.preventDefault();
+      this.sheetRef?.requestNewSheet();
+    }
   }
 
   toggleTheme(): void {

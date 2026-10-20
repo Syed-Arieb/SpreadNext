@@ -1267,6 +1267,10 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   }
 
   requestNewSheet(): void {
+    if (this.confirmNewSheetOpen || this.exportMenuOpen) {
+      return;
+    }
+
     const active = document.activeElement;
     this.newSheetReturnFocus = active instanceof HTMLElement ? active : null;
     this.commitEdit('none', false);
