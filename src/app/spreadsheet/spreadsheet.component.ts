@@ -88,7 +88,7 @@ interface ClipboardCells {
   origin: Selection;
 }
 
-type ContextSubmenu = 'paste' | 'clear' | 'format' | 'insert' | 'delete' | 'view';
+type ContextSubmenu = 'format';
 
 type MoveDirection = 'up' | 'down' | 'left' | 'right' | 'none';
 
