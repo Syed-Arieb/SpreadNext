@@ -1,74 +1,682 @@
-import { Component, EventEmitter, Input, Output, ChangeDetectionStrategy } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  EventEmitter,
+  HostListener,
+  Input,
+  OnDestroy,
+  OnInit,
+  Output,
+  QueryList,
+  ViewChild,
+  ViewChildren
+} from '@angular/core';
+import {
+  cilActionRedo,
+  cilActionUndo,
+  cilAlignCenter,
+  cilAlignLeft,
+  cilAlignRight,
+  cilBold,
+  cilCloudDownload,
+  cilItalic,
+  cilPlus,
+  cilStrikethrough,
+  cilUnderline
+} from '@coreui/icons';
+import { IconDirective } from '@coreui/icons-angular';
+
+export type CellAlign = 'left' | 'center' | 'right';
+
+export interface CellStyle {
+  bold: boolean;
+  italic: boolean;
+  underline: boolean;
+  strike: boolean;
+  align: CellAlign;
+}
+
+export interface Cell {
+  value: string;
+  style: CellStyle;
+}
+
+interface Selection {
+  row: number;
+  column: number;
+}
+
+interface SheetSnapshot {
+  rows: number;
+  columns: number;
+  cells: Cell[][];
+}
+
+type MoveDirection = 'up' | 'down' | 'left' | 'right' | 'none';
+
+const DEFAULT_ROWS = 24;
+const DEFAULT_COLUMNS = 16;
+const MAX_HISTORY = 100;
+const STORAGE_KEY = 'spreadnext-sheet';
+
+const DEFAULT_STYLE: CellStyle = {
+  bold: false,
+  italic: false,
+  underline: false,
+  strike: false,
+  align: 'left'
+};
 
 @Component({
-    selector: 'app-spreadsheet',
-    imports: [FormsModule],
-    templateUrl: './spreadsheet.component.html',
-    changeDetection: ChangeDetectionStrategy.Eager,
-    styleUrl: './spreadsheet.component.css'
+  selector: 'app-spreadsheet',
+  imports: [IconDirective],
+  templateUrl: './spreadsheet.component.html',
+  styleUrl: './spreadsheet.component.css',
+  changeDetection: ChangeDetectionStrategy.Eager
 })
-export class SpreadsheetComponent {
-  @Input() rows: number = 4;
-  @Input() columns: number = 4;
-  @Input() columnTitles: string[] = Array.from({length: this.columns}, (_, i) => `Column #${i+1}`);
-  @Output() cellChange = new EventEmitter<{ row: number, column: number, value: string }>();
-  cellData: string[][] = [];
+export class SpreadsheetComponent implements OnInit, OnDestroy {
+  @Input() rows = DEFAULT_ROWS;
+  @Input() columns = DEFAULT_COLUMNS;
 
+  @Output() cellChange = new EventEmitter<{ row: number; column: number; value: string }>();
+  @Output() sheetChange = new EventEmitter<void>();
+  @Output() saved = new EventEmitter<void>();
+
+  readonly icons = {
+    cilActionRedo,
+    cilActionUndo,
+    cilAlignCenter,
+    cilAlignLeft,
+    cilAlignRight,
+    cilBold,
+    cilCloudDownload,
+    cilItalic,
+    cilPlus,
+    cilStrikethrough,
+    cilUnderline
+  };
+
+  cellData: Cell[][] = [];
   rowIndices: number[] = [];
   columnIndices: number[] = [];
 
-  constructor() {
-    this.initCellData();
+  activeCell: Selection = { row: 0, column: 0 };
+  editingCell: Selection | null = null;
+  draftValue = '';
+  formulaValue = '';
+
+  canUndo = false;
+  canRedo = false;
+
+  showGridlines = true;
+  compactRows = false;
+
+  @ViewChild('grid') private gridRef?: ElementRef<HTMLDivElement>;
+  @ViewChild('cellEditor') private editorRef?: ElementRef<HTMLInputElement>;
+  @ViewChildren('menu') private menuRefs?: QueryList<ElementRef<HTMLDetailsElement>>;
+
+  private history: SheetSnapshot[] = [];
+  private historyIndex = -1;
+  private saveTimer?: ReturnType<typeof setTimeout>;
+
+  ngOnInit(): void {
+    if (!this.restore()) {
+      this.rows = Math.max(1, this.rows);
+      this.columns = Math.max(1, this.columns);
+      this.cellData = this.createCells(this.rows, this.columns);
+    }
+
+    this.rebuildIndices();
+    this.activeCell = { row: 0, column: 0 };
+    this.formulaValue = this.cellAt(0, 0).value;
+    this.history = [this.takeSnapshot()];
+    this.historyIndex = 0;
+    this.updateHistoryFlags();
   }
 
-  private initCellData() {
-    for (let i = 0; i < this.rows; i++) {
-      this.cellData[i] = [];
-      for (let j = 0; j < this.columns; j++) {
-        this.cellData[i][j] = '';
+  ngOnDestroy(): void {
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer);
+    }
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    this.menuRefs?.forEach(menu => {
+      if (!menu.nativeElement.contains(event.target as Node)) {
+        menu.nativeElement.open = false;
+      }
+    });
+  }
+
+  get activeCellData(): Cell {
+    return this.cellAt(this.activeCell.row, this.activeCell.column);
+  }
+
+  get activeAddress(): string {
+    return `${this.columnLabel(this.activeCell.column)}${this.activeCell.row + 1}`;
+  }
+
+  cellAt(row: number, column: number): Cell {
+    return this.cellData[row]?.[column] ?? this.createCell();
+  }
+
+  isActive(row: number, column: number): boolean {
+    return this.activeCell.row === row && this.activeCell.column === column;
+  }
+
+  isEditing(row: number, column: number): boolean {
+    return this.editingCell?.row === row && this.editingCell?.column === column;
+  }
+
+  columnLabel(index: number): string {
+    let label = '';
+    let value = index + 1;
+
+    while (value > 0) {
+      const remainder = (value - 1) % 26;
+      label = String.fromCharCode(65 + remainder) + label;
+      value = Math.floor((value - 1) / 26);
+    }
+
+    return label;
+  }
+
+  selectCell(row: number, column: number): void {
+    this.commitEdit('none', false);
+    this.activeCell = {
+      row: this.clamp(row, 0, this.rows - 1),
+      column: this.clamp(column, 0, this.columns - 1)
+    };
+    this.formulaValue = this.activeCellData.value;
+    this.focusGrid();
+  }
+
+  startEdit(initialValue?: string): void {
+    if (this.editingCell) {
+      return;
+    }
+
+    const cell = this.activeCellData;
+    this.editingCell = { ...this.activeCell };
+    this.draftValue = initialValue ?? cell.value;
+    this.formulaValue = this.draftValue;
+
+    setTimeout(() => {
+      const editor = this.editorRef?.nativeElement;
+      if (!editor) {
+        return;
+      }
+
+      editor.focus();
+      if (initialValue === undefined) {
+        editor.select();
+      } else {
+        editor.setSelectionRange(editor.value.length, editor.value.length);
+      }
+    });
+  }
+
+  onEditorInput(event: Event): void {
+    this.draftValue = (event.target as HTMLInputElement).value;
+    this.formulaValue = this.draftValue;
+  }
+
+  onEditorKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      this.commitEdit(event.shiftKey ? 'up' : 'down');
+      return;
+    }
+
+    if (event.key === 'Tab') {
+      event.preventDefault();
+      this.commitEdit(event.shiftKey ? 'left' : 'right');
+      return;
+    }
+
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      this.cancelEdit();
+    }
+  }
+
+  commitEdit(move: MoveDirection = 'none', focus = true): void {
+    const editing = this.editingCell;
+    if (!editing) {
+      return;
+    }
+
+    const cell = this.cellAt(editing.row, editing.column);
+    const value = this.draftValue;
+    this.editingCell = null;
+    this.draftValue = '';
+
+    if (cell.value !== value) {
+      cell.value = value;
+      this.cellChange.emit({ row: editing.row, column: editing.column, value });
+      this.pushHistory();
+    }
+
+    this.formulaValue = cell.value;
+
+    if (move !== 'none') {
+      this.moveSelection(move);
+    } else if (focus) {
+      this.focusGrid();
+    }
+  }
+
+  cancelEdit(): void {
+    const editing = this.editingCell;
+    if (!editing) {
+      return;
+    }
+
+    this.editingCell = null;
+    this.draftValue = '';
+    this.formulaValue = this.cellAt(editing.row, editing.column).value;
+    this.focusGrid();
+  }
+
+  onGridKeydown(event: KeyboardEvent): void {
+    const key = event.key;
+    const modifier = event.ctrlKey || event.metaKey;
+
+    if (modifier) {
+      switch (key.toLowerCase()) {
+        case 'z':
+          event.preventDefault();
+          event.shiftKey ? this.redo() : this.undo();
+          return;
+        case 'y':
+          event.preventDefault();
+          this.redo();
+          return;
+        case 'b':
+          event.preventDefault();
+          this.toggleStyle('bold');
+          return;
+        case 'i':
+          event.preventDefault();
+          this.toggleStyle('italic');
+          return;
+        case 'u':
+          event.preventDefault();
+          this.toggleStyle('underline');
+          return;
       }
     }
-  }
 
-  getCellData(row: number, column: number): string {
-    return this.cellData[row][column];
-  }
-
-  onCellChange(value: string, row: number, column: number) {
-    this.cellData[row][column] = value;
-    this.cellChange.emit({ row, column, value });
-    console.log(`Cell at row ${row}, column ${column} changed to ${value}`);
-  }
-
-  ngOnInit() {
-    this.columnTitles = this.columnTitles.length
-      ? this.columnTitles
-      : Array.from({ length: this.columns }, (_, i) => `Column #${i + 1}`);
-
-    this.rowIndices = Array.from({ length: this.rows }, (_, i) => i);
-    this.columnIndices = Array.from({ length: this.columns }, (_, i) => i);
-  }
-
-  addRow() {
-    this.rows++;
-    this.rowIndices = Array.from({ length: this.rows }, (_, i) => i);
-    this.cellData.push([]); // Add a new empty row to cellData
-    for (let j = 0; j < this.columns; j++) {
-      this.cellData[this.rows - 1][j] = ''; // Initialize each cell in the new row
+    switch (key) {
+      case 'ArrowUp':
+        event.preventDefault();
+        this.moveSelection('up');
+        return;
+      case 'ArrowDown':
+        event.preventDefault();
+        this.moveSelection('down');
+        return;
+      case 'ArrowLeft':
+        event.preventDefault();
+        this.moveSelection('left');
+        return;
+      case 'ArrowRight':
+        event.preventDefault();
+        this.moveSelection('right');
+        return;
+      case 'Tab':
+        event.preventDefault();
+        this.moveSelection(event.shiftKey ? 'left' : 'right');
+        return;
+      case 'Enter':
+      case 'F2':
+        event.preventDefault();
+        this.startEdit();
+        return;
+      case 'Delete':
+      case 'Backspace':
+        event.preventDefault();
+        this.clearActiveCell();
+        return;
+      case 'Home':
+        event.preventDefault();
+        this.activeCell = { row: event.ctrlKey ? 0 : this.activeCell.row, column: 0 };
+        this.formulaValue = this.activeCellData.value;
+        this.focusGrid();
+        this.scrollActiveIntoView();
+        return;
     }
-    console.table(this.cellData);
-  }
 
-  addColumn() {
-    this.columns++;
-    this.columnTitles = this.columnTitles.length
-      ? [...this.columnTitles, `Column #${this.columns}`]
-      : Array.from({ length: this.columns }, (_, i) => `Column #${i + 1}`);
-    this.columnIndices = Array.from({ length: this.columns }, (_, i) => i);
-    for (let i = 0; i < this.rows; i++) {
-      this.cellData[i].push(''); // Add a new empty cell to each row
+    if (!modifier && !event.altKey && key.length === 1) {
+      event.preventDefault();
+      this.startEdit(key);
     }
   }
 
+  moveSelection(direction: Exclude<MoveDirection, 'none'>): void {
+    let row = this.activeCell.row;
+    let column = this.activeCell.column;
+
+    if (direction === 'up') {
+      row -= 1;
+    } else if (direction === 'down') {
+      row += 1;
+    } else if (direction === 'left') {
+      column -= 1;
+    } else {
+      column += 1;
+    }
+
+    if (row >= this.rows) {
+      this.addRow();
+    }
+    if (column >= this.columns) {
+      this.addColumn();
+    }
+
+    this.activeCell = {
+      row: this.clamp(row, 0, this.rows - 1),
+      column: this.clamp(column, 0, this.columns - 1)
+    };
+    this.formulaValue = this.activeCellData.value;
+    this.focusGrid();
+    this.scrollActiveIntoView();
+  }
+
+  addRow(): void {
+    this.rows += 1;
+    this.cellData.push(Array.from({ length: this.columns }, () => this.createCell()));
+    this.rebuildIndices();
+    this.pushHistory();
+  }
+
+  addColumn(): void {
+    this.columns += 1;
+    this.cellData.forEach(row => row.push(this.createCell()));
+    this.rebuildIndices();
+    this.pushHistory();
+  }
+
+  clearActiveCell(): void {
+    const cell = this.activeCellData;
+    if (cell.value === '') {
+      return;
+    }
+
+    cell.value = '';
+    this.formulaValue = '';
+    this.cellChange.emit({
+      row: this.activeCell.row,
+      column: this.activeCell.column,
+      value: ''
+    });
+    this.pushHistory();
+  }
+
+  toggleStyle(style: 'bold' | 'italic' | 'underline' | 'strike'): void {
+    const cell = this.activeCellData;
+    cell.style[style] = !cell.style[style];
+    this.pushHistory();
+  }
+
+  setAlignment(align: CellAlign): void {
+    const cell = this.activeCellData;
+    if (cell.style.align === align) {
+      return;
+    }
+
+    cell.style.align = align;
+    this.pushHistory();
+  }
+
+  toggleGridlines(): void {
+    this.showGridlines = !this.showGridlines;
+  }
+
+  toggleCompactRows(): void {
+    this.compactRows = !this.compactRows;
+  }
+
+  undo(): void {
+    if (this.historyIndex <= 0) {
+      return;
+    }
+
+    this.commitEdit('none', false);
+    if (this.historyIndex <= 0) {
+      return;
+    }
+
+    this.historyIndex -= 1;
+    this.restoreSnapshot(this.history[this.historyIndex]);
+    this.updateHistoryFlags();
+    this.sheetChange.emit();
+    this.scheduleSave();
+    this.focusGrid();
+  }
+
+  redo(): void {
+    if (this.historyIndex >= this.history.length - 1) {
+      return;
+    }
+
+    this.commitEdit('none', false);
+    this.historyIndex += 1;
+    this.restoreSnapshot(this.history[this.historyIndex]);
+    this.updateHistoryFlags();
+    this.sheetChange.emit();
+    this.scheduleSave();
+    this.focusGrid();
+  }
+
+  newSheet(): void {
+    if (!window.confirm('Start a new sheet? This clears the current sheet. You can undo this action.')) {
+      return;
+    }
+
+    this.commitEdit('none', false);
+    this.rows = DEFAULT_ROWS;
+    this.columns = DEFAULT_COLUMNS;
+    this.cellData = this.createCells(this.rows, this.columns);
+    this.rebuildIndices();
+    this.activeCell = { row: 0, column: 0 };
+    this.formulaValue = '';
+    this.pushHistory();
+    this.focusGrid();
+  }
+
+  exportCsv(): void {
+    const content = this.cellData
+      .map(row => row.map(cell => this.escapeCsv(cell.value)).join(','))
+      .join('\r\n');
+
+    const blob = new Blob([`\ufeff${content}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'spread-next.csv';
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  printSheet(): void {
+    window.print();
+  }
+
+  closeMenus(): void {
+    this.menuRefs?.forEach(menu => menu.nativeElement.open = false);
+  }
+
+  onFormulaInput(event: Event): void {
+    this.formulaValue = (event.target as HTMLInputElement).value;
+  }
+
+  commitFormula(event?: Event): void {
+    if (event) {
+      event.preventDefault();
+    }
+
+    const cell = this.activeCellData;
+    if (cell.value !== this.formulaValue) {
+      cell.value = this.formulaValue;
+      this.cellChange.emit({
+        row: this.activeCell.row,
+        column: this.activeCell.column,
+        value: this.formulaValue
+      });
+      this.pushHistory();
+    }
+
+    if (event) {
+      this.moveSelection('down');
+    } else {
+      this.formulaValue = cell.value;
+    }
+  }
+
+  private escapeCsv(value: string): string {
+    const safeValue = /^[=+\-@]/.test(value) ? `'${value}` : value;
+    return `"${safeValue.replace(/"/g, '""')}"`;
+  }
+
+  private pushHistory(): void {
+    this.history = this.history.slice(0, this.historyIndex + 1);
+    this.history.push(this.takeSnapshot());
+
+    if (this.history.length > MAX_HISTORY) {
+      this.history.shift();
+    }
+
+    this.historyIndex = this.history.length - 1;
+    this.updateHistoryFlags();
+    this.sheetChange.emit();
+    this.scheduleSave();
+  }
+
+  private updateHistoryFlags(): void {
+    this.canUndo = this.historyIndex > 0;
+    this.canRedo = this.historyIndex < this.history.length - 1;
+  }
+
+  private takeSnapshot(): SheetSnapshot {
+    return {
+      rows: this.rows,
+      columns: this.columns,
+      cells: this.cellData.map(row => row.map(cell => ({
+        value: cell.value,
+        style: { ...cell.style }
+      })))
+    };
+  }
+
+  private restoreSnapshot(snapshot: SheetSnapshot): void {
+    this.rows = snapshot.rows;
+    this.columns = snapshot.columns;
+    this.cellData = snapshot.cells.map(row => row.map(cell => ({
+      value: cell.value,
+      style: { ...cell.style }
+    })));
+    this.rebuildIndices();
+    this.activeCell = {
+      row: this.clamp(this.activeCell.row, 0, this.rows - 1),
+      column: this.clamp(this.activeCell.column, 0, this.columns - 1)
+    };
+    this.formulaValue = this.activeCellData.value;
+  }
+
+  private rebuildIndices(): void {
+    this.rowIndices = Array.from({ length: this.rows }, (_, index) => index);
+    this.columnIndices = Array.from({ length: this.columns }, (_, index) => index);
+  }
+
+  private createCells(rows: number, columns: number): Cell[][] {
+    return Array.from({ length: rows }, () =>
+      Array.from({ length: columns }, () => this.createCell())
+    );
+  }
+
+  private createCell(): Cell {
+    return { value: '', style: { ...DEFAULT_STYLE } };
+  }
+
+  private normalizeCell(raw: unknown): Cell {
+    const source = (raw ?? {}) as Partial<Cell>;
+    const style = (source.style ?? {}) as Partial<CellStyle>;
+
+    return {
+      value: typeof source.value === 'string' ? source.value : '',
+      style: {
+        bold: style.bold === true,
+        italic: style.italic === true,
+        underline: style.underline === true,
+        strike: style.strike === true,
+        align: style.align === 'center' || style.align === 'right' ? style.align : 'left'
+      }
+    };
+  }
+
+  private restore(): boolean {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) {
+        return false;
+      }
+
+      const data = JSON.parse(raw) as Partial<SheetSnapshot>;
+      if (
+        !Number.isInteger(data.rows) ||
+        !Number.isInteger(data.columns) ||
+        (data.rows ?? 0) < 1 ||
+        (data.columns ?? 0) < 1 ||
+        !Array.isArray(data.cells)
+      ) {
+        return false;
+      }
+
+      this.rows = Math.min(500, data.rows as number);
+      this.columns = Math.min(100, data.columns as number);
+      this.cellData = Array.from({ length: this.rows }, (_, row) =>
+        Array.from({ length: this.columns }, (_, column) =>
+          this.normalizeCell(data.cells?.[row]?.[column])
+        )
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private scheduleSave(): void {
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer);
+    }
+
+    this.saveTimer = setTimeout(() => {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(this.takeSnapshot()));
+        this.saved.emit();
+      } catch {
+        return;
+      }
+    }, 400);
+  }
+
+  private focusGrid(): void {
+    setTimeout(() => this.gridRef?.nativeElement.focus({ preventScroll: true }));
+  }
+
+  private scrollActiveIntoView(): void {
+    setTimeout(() => {
+      const selector = `[data-row="${this.activeCell.row}"][data-col="${this.activeCell.column}"]`;
+      this.gridRef?.nativeElement
+        .querySelector<HTMLElement>(selector)
+        ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    });
+  }
+
+  private clamp(value: number, min: number, max: number): number {
+    return Math.min(Math.max(value, min), max);
+  }
 }

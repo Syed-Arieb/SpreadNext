@@ -1,30 +1,247 @@
-<table class="spreadsheet">
-  <thead>
-    <tr>
-      @for (title of columnTitles; track title) {
-        <td>
-          <input type="text" class="bold" value="{{ title }}" />
-        </td>
-      }
-    </tr>
-  </thead>
-  <tbody>
-    @for (i of rowIndices; track i) {
-      <tr>
-        @for (j of columnIndices; track j) {
-          <td>
-            <input type="text" name="" id="" [(ngModel)]="cellData[i][j]" (ngModelChange)="onCellChange($event, i, j)"/>
-          </td>
-        }
-      </tr>
-    }
-  </tbody>
-  <div class="button-group">
-    <button (click)="addRow()">
-      Add Row
-    </button>
-    <button (click)="addColumn()">
-      Add Column
+<div class="sheet">
+  <nav class="menubar" aria-label="Spreadsheet menu">
+    <details class="menu" #menu>
+      <summary>File</summary>
+      <div class="menu-panel">
+        <button type="button" (click)="newSheet(); closeMenus()">
+          <span class="menu-check">＋</span>
+          New sheet
+        </button>
+        <button type="button" (click)="exportCsv(); closeMenus()">
+          <span class="menu-check">↓</span>
+          Download CSV
+        </button>
+        <button type="button" (click)="printSheet(); closeMenus()">
+          <span class="menu-check">⎙</span>
+          Print
+        </button>
+      </div>
+    </details>
+
+    <details class="menu" #menu>
+      <summary>Edit</summary>
+      <div class="menu-panel">
+        <button type="button" [disabled]="!canUndo" (click)="undo(); closeMenus()">
+          <span class="menu-check">↶</span>
+          Undo
+          <kbd>Ctrl Z</kbd>
+        </button>
+        <button type="button" [disabled]="!canRedo" (click)="redo(); closeMenus()">
+          <span class="menu-check">↷</span>
+          Redo
+          <kbd>Ctrl Y</kbd>
+        </button>
+        <hr />
+        <button type="button" (click)="clearActiveCell(); closeMenus()">
+          <span class="menu-check">⌫</span>
+          Clear cell
+          <kbd>Del</kbd>
+        </button>
+      </div>
+    </details>
+
+    <details class="menu" #menu>
+      <summary>View</summary>
+      <div class="menu-panel">
+        <button type="button" (click)="toggleGridlines(); closeMenus()">
+          <span class="menu-check">{{ showGridlines ? '✓' : '' }}</span>
+          Gridlines
+        </button>
+        <button type="button" (click)="toggleCompactRows(); closeMenus()">
+          <span class="menu-check">{{ compactRows ? '✓' : '' }}</span>
+          Compact rows
+        </button>
+      </div>
+    </details>
+
+    <details class="menu" #menu>
+      <summary>Format</summary>
+      <div class="menu-panel">
+        <button type="button" (click)="toggleStyle('bold'); closeMenus()">
+          <span class="menu-check">{{ activeCellData.style.bold ? '✓' : '' }}</span>
+          Bold
+          <kbd>Ctrl B</kbd>
+        </button>
+        <button type="button" (click)="toggleStyle('italic'); closeMenus()">
+          <span class="menu-check">{{ activeCellData.style.italic ? '✓' : '' }}</span>
+          Italic
+          <kbd>Ctrl I</kbd>
+        </button>
+        <button type="button" (click)="toggleStyle('underline'); closeMenus()">
+          <span class="menu-check">{{ activeCellData.style.underline ? '✓' : '' }}</span>
+          Underline
+          <kbd>Ctrl U</kbd>
+        </button>
+        <button type="button" (click)="toggleStyle('strike'); closeMenus()">
+          <span class="menu-check">{{ activeCellData.style.strike ? '✓' : '' }}</span>
+          Strikethrough
+        </button>
+        <hr />
+        <button type="button" (click)="setAlignment('left'); closeMenus()">
+          <span class="menu-check">{{ activeCellData.style.align === 'left' ? '✓' : '' }}</span>
+          Align left
+        </button>
+        <button type="button" (click)="setAlignment('center'); closeMenus()">
+          <span class="menu-check">{{ activeCellData.style.align === 'center' ? '✓' : '' }}</span>
+          Align center
+        </button>
+        <button type="button" (click)="setAlignment('right'); closeMenus()">
+          <span class="menu-check">{{ activeCellData.style.align === 'right' ? '✓' : '' }}</span>
+          Align right
+        </button>
+      </div>
+    </details>
+  </nav>
+
+  <div class="toolbar" role="toolbar" aria-label="Formatting toolbar">
+    <div class="tool-group">
+      <button type="button" class="tool" title="Undo (Ctrl+Z)" aria-label="Undo" [disabled]="!canUndo" (click)="undo()">
+        <svg [cIcon]="icons.cilActionUndo" aria-hidden="true"></svg>
+      </button>
+      <button type="button" class="tool" title="Redo (Ctrl+Y)" aria-label="Redo" [disabled]="!canRedo" (click)="redo()">
+        <svg [cIcon]="icons.cilActionRedo" aria-hidden="true"></svg>
+      </button>
+    </div>
+
+    <span class="tool-divider" aria-hidden="true"></span>
+
+    <div class="tool-group">
+      <button type="button" class="tool" title="Bold (Ctrl+B)" aria-label="Bold" [class.is-active]="activeCellData.style.bold" (click)="toggleStyle('bold')">
+        <svg [cIcon]="icons.cilBold" aria-hidden="true"></svg>
+      </button>
+      <button type="button" class="tool" title="Italic (Ctrl+I)" aria-label="Italic" [class.is-active]="activeCellData.style.italic" (click)="toggleStyle('italic')">
+        <svg [cIcon]="icons.cilItalic" aria-hidden="true"></svg>
+      </button>
+      <button type="button" class="tool" title="Underline (Ctrl+U)" aria-label="Underline" [class.is-active]="activeCellData.style.underline" (click)="toggleStyle('underline')">
+        <svg [cIcon]="icons.cilUnderline" aria-hidden="true"></svg>
+      </button>
+      <button type="button" class="tool" title="Strikethrough" aria-label="Strikethrough" [class.is-active]="activeCellData.style.strike" (click)="toggleStyle('strike')">
+        <svg [cIcon]="icons.cilStrikethrough" aria-hidden="true"></svg>
+      </button>
+    </div>
+
+    <span class="tool-divider" aria-hidden="true"></span>
+
+    <div class="tool-group">
+      <button type="button" class="tool" title="Align left" aria-label="Align left" [class.is-active]="activeCellData.style.align === 'left'" (click)="setAlignment('left')">
+        <svg [cIcon]="icons.cilAlignLeft" aria-hidden="true"></svg>
+      </button>
+      <button type="button" class="tool" title="Align center" aria-label="Align center" [class.is-active]="activeCellData.style.align === 'center'" (click)="setAlignment('center')">
+        <svg [cIcon]="icons.cilAlignCenter" aria-hidden="true"></svg>
+      </button>
+      <button type="button" class="tool" title="Align right" aria-label="Align right" [class.is-active]="activeCellData.style.align === 'right'" (click)="setAlignment('right')">
+        <svg [cIcon]="icons.cilAlignRight" aria-hidden="true"></svg>
+      </button>
+    </div>
+
+    <span class="tool-divider" aria-hidden="true"></span>
+
+    <div class="tool-group">
+      <button type="button" class="tool tool-label" title="Add a row at the bottom" (click)="addRow()">
+        <svg [cIcon]="icons.cilPlus" aria-hidden="true"></svg>
+        Row
+      </button>
+      <button type="button" class="tool tool-label" title="Add a column at the right" (click)="addColumn()">
+        <svg [cIcon]="icons.cilPlus" aria-hidden="true"></svg>
+        Column
+      </button>
+    </div>
+
+    <span class="toolbar-spacer"></span>
+
+    <button type="button" class="tool tool-label" title="Download the sheet as CSV" (click)="exportCsv()">
+      <svg [cIcon]="icons.cilCloudDownload" aria-hidden="true"></svg>
+      Export
     </button>
   </div>
-</table>
+
+  <div class="formula-bar">
+    <span class="cell-address" [attr.aria-label]="'Active cell ' + activeAddress">{{ activeAddress }}</span>
+    <span class="fx" aria-hidden="true">fx</span>
+    <input
+      class="formula-input"
+      type="text"
+      aria-label="Formula bar"
+      spellcheck="false"
+      autocomplete="off"
+      [value]="formulaValue"
+      (input)="onFormulaInput($event)"
+      (keydown.enter)="commitFormula($event)"
+      (blur)="commitFormula()"
+    />
+  </div>
+
+  <div
+    class="grid-scroll"
+    #grid
+    tabindex="0"
+    aria-label="Spreadsheet grid"
+    (keydown)="onGridKeydown($event)"
+  >
+    <table class="grid" [class.no-gridlines]="!showGridlines" [class.compact]="compactRows">
+      <colgroup>
+        <col class="row-number-col" />
+        @for (column of columnIndices; track column) {
+          <col class="cell-col" />
+        }
+      </colgroup>
+      <thead>
+        <tr>
+          <th class="corner" scope="col"></th>
+          @for (column of columnIndices; track column) {
+            <th class="col-header" scope="col" [class.active]="activeCell.column === column">{{ columnLabel(column) }}</th>
+          }
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of rowIndices; track row) {
+          <tr>
+            <th class="row-header" scope="row" [class.active]="activeCell.row === row">{{ row + 1 }}</th>
+            @for (column of columnIndices; track column) {
+              <td
+                class="cell"
+                [class.active]="isActive(row, column)"
+                [class.editing]="isEditing(row, column)"
+                [attr.data-row]="row"
+                [attr.data-col]="column"
+                (click)="selectCell(row, column)"
+                (dblclick)="startEdit()"
+              >
+                @if (isEditing(row, column)) {
+                  <input
+                    #cellEditor
+                    class="cell-editor"
+                    type="text"
+                    spellcheck="false"
+                    autocomplete="off"
+                    [value]="draftValue"
+                    (input)="onEditorInput($event)"
+                    (keydown)="onEditorKeydown($event)"
+                    (blur)="commitEdit('none', false)"
+                  />
+                } @else {
+                  <span
+                    class="cell-value"
+                    [class.bold]="cellAt(row, column).style.bold"
+                    [class.italic]="cellAt(row, column).style.italic"
+                    [class.underline]="cellAt(row, column).style.underline"
+                    [class.strike]="cellAt(row, column).style.strike"
+                    [style.text-align]="cellAt(row, column).style.align"
+                  >{{ cellAt(row, column).value }}</span>
+                }
+              </td>
+            }
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <footer class="statusbar" aria-live="polite">
+    <span class="status-cell">{{ activeAddress }}</span>
+    <span class="status-sep" aria-hidden="true"></span>
+    <span>{{ rows }} rows × {{ columns }} columns</span>
+    <span class="status-spacer"></span>
+    <span>{{ activeCellData.value || 'Ready' }}</span>
+  </footer>
+</div>
