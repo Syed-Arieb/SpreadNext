@@ -54,7 +54,7 @@ npm test
 
 ## Formula Engine
 
-The prebuilt engine is in `public/formula-engine.wasm`. You only need Rust to change the engine source in `engine/`.
+The prebuilt engine is in `public/formula-engine.wasm`. Formula evaluation and CSV export run in the Rust engine. You only need Rust to change the engine source in `engine/`.
 
 ```bash
 rustup target add wasm32-unknown-unknown

@@ -1011,6 +1011,12 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
         event.preventDefault();
         this.clearActiveCell();
         return;
+      case 'Escape':
+        if (this.selectedCellCount > 1) {
+          event.preventDefault();
+          this.selectionAnchor = { ...this.activeCell };
+        }
+        return;
       case 'Home':
         event.preventDefault();
         this.activeCell = { row: event.ctrlKey ? 0 : this.activeCell.row, column: 0 };
@@ -1235,12 +1241,15 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     this.focusGrid();
   }
 
-  exportCsv(): void {
-    const content = this.rowIndices
-      .map(row => this.columnIndices
-        .map(column => this.escapeCsv(this.displayAt(row, column)))
-        .join(','))
-      .join('\r\n');
+  async exportCsv(): Promise<void> {
+    const cells = this.cellData.map(row => row.map(cell => cell.value));
+    let content: string;
+
+    try {
+      content = await this.engine.exportCsv(this.rows, this.columns, cells);
+    } catch {
+      content = this.fallbackCsv();
+    }
 
     const blob = new Blob([`\ufeff${content}`], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -1293,7 +1302,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
 
   saveAsCsv(): void {
     this.closeExportMenu();
-    this.exportCsv();
+    void this.exportCsv();
   }
 
   saveAsPdf(): void {
@@ -1338,6 +1347,14 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   private escapeCsv(value: string): string {
     const safeValue = /^[=+\-@]/.test(value) ? `'${value}` : value;
     return `"${safeValue.replace(/"/g, '""')}"`;
+  }
+
+  private fallbackCsv(): string {
+    return this.rowIndices
+      .map(row => this.columnIndices
+        .map(column => this.escapeCsv(this.displayAt(row, column)))
+        .join(','))
+      .join('\r\n');
   }
 
   private pushHistory(): void {
@@ -1503,6 +1520,13 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     const rows = this.rows;
     const columns = this.columns;
     const cells = this.cellData.map(row => row.map(cell => cell.value));
+
+    if (!cells.some(row => row.some(value => value.trimStart().startsWith('=')))) {
+      if (version === this.recalculateVersion) {
+        this.displayValues = cells;
+      }
+      return;
+    }
 
     try {
       const values = await this.engine.evaluate(rows, columns, cells);

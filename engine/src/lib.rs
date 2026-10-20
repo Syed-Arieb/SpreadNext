@@ -82,6 +82,30 @@ pub unsafe extern "C" fn evaluate(pointer: *const u8, length: usize) {
     });
 }
 
+/// Exports a JSON sheet description as CSV and stores the result.
+///
+/// The first output byte is a status code. Zero means success and one means
+/// failure. The remaining bytes are the CSV data or an error message.
+///
+/// # Safety
+///
+/// `pointer` must reference at least `length` readable bytes that remain valid
+/// for the duration of the call.
+#[no_mangle]
+pub unsafe extern "C" fn export_csv(pointer: *const u8, length: usize) {
+    let input = if pointer.is_null() || length == 0 {
+        &[]
+    } else {
+        std::slice::from_raw_parts(pointer, length)
+    };
+
+    let output = calculate_csv(input);
+
+    RESULT.with(|result| {
+        *result.borrow_mut() = output;
+    });
+}
+
 #[no_mangle]
 pub extern "C" fn result_ptr() -> *const u8 {
     RESULT.with(|result| result.borrow().as_ptr())
@@ -110,5 +134,97 @@ fn calculate(input: &[u8]) -> SheetOutput {
     SheetOutput {
         values: sheet.calculate(),
         error: None,
+    }
+}
+
+fn calculate_csv(input: &[u8]) -> Vec<u8> {
+    let request = match serde_json::from_slice::<SheetInput>(input) {
+        Ok(request) => request,
+        Err(error) => return csv_error(&error.to_string()),
+    };
+
+    let rows = request.rows.min(MAX_ROWS);
+    let columns = request.columns.min(MAX_COLUMNS);
+    let mut sheet = Sheet::new(rows, columns, request.cells);
+    let values = sheet.calculate();
+
+    let mut csv = String::new();
+    for (row_index, row) in values.iter().enumerate() {
+        if row_index > 0 {
+            csv.push_str("\r\n");
+        }
+
+        for (column_index, value) in row.iter().enumerate() {
+            if column_index > 0 {
+                csv.push(',');
+            }
+            push_csv_cell(&mut csv, value);
+        }
+    }
+
+    let mut output = Vec::with_capacity(csv.len() + 1);
+    output.push(0);
+    output.extend_from_slice(csv.as_bytes());
+    output
+}
+
+fn csv_error(message: &str) -> Vec<u8> {
+    let mut output = Vec::with_capacity(message.len() + 1);
+    output.push(1);
+    output.extend_from_slice(message.as_bytes());
+    output
+}
+
+fn push_csv_cell(output: &mut String, value: &str) {
+    output.push('"');
+
+    if matches!(value.as_bytes().first(), Some(b'=' | b'+' | b'-' | b'@')) {
+        output.push('\'');
+    }
+
+    for character in value.chars() {
+        if character == '"' {
+            output.push('"');
+        }
+        output.push(character);
+    }
+
+    output.push('"');
+}
+
+#[cfg(test)]
+mod tests {
+    use super::calculate_csv;
+
+    #[test]
+    fn exports_evaluated_cells_as_csv() {
+        let input = br#"{"rows":2,"columns":2,"cells":[["a,b","=1+2"],["say \"hi\"","=A1"]]}"#;
+        let output = calculate_csv(input);
+
+        assert_eq!(output[0], 0);
+        assert_eq!(
+            std::str::from_utf8(&output[1..]).unwrap(),
+            "\"a,b\",\"3\"\r\n\"say \"\"hi\"\"\",\"a,b\""
+        );
+    }
+
+    #[test]
+    fn prefixes_spreadsheet_formula_characters() {
+        let input = br#"{"rows":1,"columns":2,"cells":[["+hello","@world"]]}"#;
+        let output = calculate_csv(input);
+
+        assert_eq!(output[0], 0);
+        assert_eq!(
+            std::str::from_utf8(&output[1..]).unwrap(),
+            "\"'+hello\",\"'@world\""
+        );
+    }
+
+    #[test]
+    fn reports_invalid_input() {
+        let output = calculate_csv(b"not json");
+
+        assert_eq!(output[0], 1);
+        assert!(!output[1..].is_empty());
     }
 }
