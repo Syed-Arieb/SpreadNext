@@ -2,7 +2,7 @@
 
 SpreadNext is a spreadsheet web app built with Angular and Rust. It has an editable grid, formulas, cell styling, range selection, undo and redo, autosave, and CSV and XLSX export.
 
-![SpreadNext Screenshot](https://github.com/user-attachments/assets/f14183e9-b087-46f6-bae9-dd3db116e028)
+<img height="300" alt="image" src="https://github.com/user-attachments/assets/71695d2a-783d-4c3d-8230-4f9d877c4a93" />
 
 ## Features
 
