@@ -635,6 +635,11 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
       return false;
     }
 
+    if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+      this.hideSuggestions();
+      return false;
+    }
+
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
       const direction = event.key === 'ArrowDown' ? 1 : -1;
@@ -751,6 +756,14 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     if (input) {
       this.updateSuggestions(input.value, input.selectionStart ?? input.value.length);
     }
+  }
+
+  onFormulaKeyup(event: KeyboardEvent): void {
+    if (['ArrowUp', 'ArrowDown', 'Enter', 'Tab', 'Escape'].includes(event.key)) {
+      return;
+    }
+
+    this.onFormulaCaret();
   }
 
   onGridKeydown(event: KeyboardEvent): void {
