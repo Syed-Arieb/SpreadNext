@@ -758,8 +758,6 @@
       class="context-menu"
       role="menu"
       aria-label="Cell actions"
-      [style.left.px]="contextMenuX"
-      [style.top.px]="contextMenuY"
       (keydown)="onContextMenuKeydown($event)"
     >
       <div class="context-strip" role="group" aria-label="Quick actions">
@@ -887,8 +885,6 @@
         class="context-submenu"
         role="menu"
         [attr.aria-label]="openSubmenu"
-        [style.left.px]="submenuX"
-        [style.top.px]="submenuY"
         (mouseenter)="cancelSubmenuClose()"
         (mouseleave)="scheduleSubmenuClose()"
         (keydown)="onContextMenuKeydown($event)"

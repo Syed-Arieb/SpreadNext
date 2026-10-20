@@ -201,11 +201,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   fillDialogOpen = false;
   borderDialogOpen = false;
   contextMenuOpen = false;
-  contextMenuX = 0;
-  contextMenuY = 0;
   openSubmenu: ContextSubmenu | null = null;
-  submenuX = 0;
-  submenuY = 0;
   fillPickerValue = '#fde047';
   borderLineStyle: BorderLineStyle = 'thin';
   borderColor = DEFAULT_BORDER_COLOR;
@@ -225,6 +221,9 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   private borderReturnFocus: HTMLElement | null = null;
   private clipboard: ClipboardCells | null = null;
   private submenuCloseTimer?: ReturnType<typeof setTimeout>;
+  private contextMenuElement: HTMLElement | null = null;
+  private contextMenuClientX = 0;
+  private contextMenuClientY = 0;
   private submenuElement: HTMLElement | null = null;
   private submenuTrigger: HTMLElement | null = null;
 
@@ -245,7 +244,14 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   @ViewChild('fillDialog') private fillDialogRef?: ElementRef<HTMLElement>;
   @ViewChild('borderFirst') private borderFirstRef?: ElementRef<HTMLButtonElement>;
   @ViewChild('borderDialog') private borderDialogRef?: ElementRef<HTMLElement>;
-  @ViewChild('contextMenu') private contextMenuRef?: ElementRef<HTMLElement>;
+  @ViewChild('contextMenu')
+  set contextMenuRef(ref: ElementRef<HTMLElement> | undefined) {
+    this.contextMenuElement = ref?.nativeElement ?? null;
+    if (ref) {
+      this.positionContextMenu();
+    }
+  }
+
   @ViewChild('contextSubmenu')
   set contextSubmenuRef(ref: ElementRef<HTMLElement> | undefined) {
     this.submenuElement = ref?.nativeElement ?? null;
@@ -1497,20 +1503,9 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     }
 
     this.contextMenuOpen = true;
-    this.contextMenuX = event.clientX;
-    this.contextMenuY = event.clientY;
-
-    setTimeout(() => {
-      const menu = this.contextMenuRef?.nativeElement;
-      if (!menu) {
-        return;
-      }
-
-      const rect = menu.getBoundingClientRect();
-      this.contextMenuX = Math.max(8, Math.min(this.contextMenuX, window.innerWidth - rect.width - 8));
-      this.contextMenuY = Math.max(8, Math.min(this.contextMenuY, window.innerHeight - rect.height - 8));
-      this.focusContextMenuItem();
-    });
+    this.contextMenuClientX = event.clientX;
+    this.contextMenuClientY = event.clientY;
+    setTimeout(() => this.focusContextMenuItem());
   }
 
   closeContextMenu(): void {
@@ -2214,7 +2209,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   }
 
   private contextMenuItems(): HTMLButtonElement[] {
-    return this.menuItems(this.contextMenuRef?.nativeElement);
+    return this.menuItems(this.contextMenuElement ?? undefined);
   }
 
   private contextSubmenuItems(): HTMLButtonElement[] {
@@ -2261,6 +2256,19 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     return values;
   }
 
+  private positionContextMenu(): void {
+    const element = this.contextMenuElement;
+    if (!element) {
+      return;
+    }
+
+    const rect = element.getBoundingClientRect();
+    const left = Math.max(8, Math.min(this.contextMenuClientX, window.innerWidth - rect.width - 8));
+    const top = Math.max(8, Math.min(this.contextMenuClientY, window.innerHeight - rect.height - 8));
+    element.style.left = `${left}px`;
+    element.style.top = `${top}px`;
+  }
+
   private positionSubmenu(): void {
     const submenu = this.submenuElement;
     const trigger = this.submenuTrigger;
@@ -2284,8 +2292,8 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
       top = Math.max(8, window.innerHeight - height - 8);
     }
 
-    this.submenuX = left;
-    this.submenuY = top;
+    submenu.style.left = `${left}px`;
+    submenu.style.top = `${top}px`;
   }
 
   private selectionText(): string {

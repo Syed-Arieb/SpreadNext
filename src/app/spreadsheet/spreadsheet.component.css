@@ -114,6 +114,8 @@
 
 .context-menu {
   position: fixed;
+  left: 0;
+  top: 0;
   z-index: 151;
   max-height: calc(100vh - 16px);
   max-height: calc(100dvh - 16px);
@@ -123,6 +125,8 @@
 
 .context-submenu {
   position: fixed;
+  left: 0;
+  top: 0;
   z-index: 152;
   min-width: 210px;
   max-height: calc(100vh - 16px);
