@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, HostListener } from '@angular/core';
+import { ChangeDetectionStrategy, Component, HostListener, ViewChild } from '@angular/core';
 import { cilMoon, cilSpreadsheet, cilSun } from '@coreui/icons';
 import { IconDirective } from '@coreui/icons-angular';
 import { SpreadsheetComponent } from './spreadsheet/spreadsheet.component';
@@ -19,6 +19,8 @@ export class AppComponent {
   darkMode = true;
 
   private titleSaveTimer?: ReturnType<typeof setTimeout>;
+
+  @ViewChild(SpreadsheetComponent) private sheetRef?: SpreadsheetComponent;
 
   constructor() {
     const savedTitle = this.readStorage('spreadnext-title');
@@ -42,9 +44,8 @@ export class AppComponent {
     }
 
     this.titleSaveTimer = setTimeout(() => {
-      try {
-        localStorage.setItem('spreadnext-title', this.documentTitle);
-      } catch {
+      this.titleSaveTimer = undefined;
+      if (!this.persistTitle()) {
         return;
       }
       this.unsavedChanges = false;
@@ -61,6 +62,30 @@ export class AppComponent {
 
   onSaved(): void {
     this.unsavedChanges = false;
+  }
+
+  @HostListener('window:keydown', ['$event'])
+  onWindowKeydown(event: KeyboardEvent): void {
+    if (event.defaultPrevented || event.altKey) {
+      return;
+    }
+
+    if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 's') {
+      return;
+    }
+
+    event.preventDefault();
+    this.saveNow();
+  }
+
+  saveNow(): void {
+    if (this.titleSaveTimer) {
+      clearTimeout(this.titleSaveTimer);
+      this.titleSaveTimer = undefined;
+      this.persistTitle();
+    }
+
+    this.sheetRef?.saveNow();
   }
 
   toggleTheme(): void {
@@ -87,6 +112,15 @@ export class AppComponent {
 
   private applyTheme(): void {
     document.documentElement.dataset['theme'] = this.darkMode ? 'dark' : 'light';
+  }
+
+  private persistTitle(): boolean {
+    try {
+      localStorage.setItem('spreadnext-title', this.documentTitle);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   private readStorage(key: string): string | null {

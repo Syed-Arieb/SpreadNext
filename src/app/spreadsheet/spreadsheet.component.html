@@ -3,6 +3,12 @@
     <details class="menu" #menu>
       <summary>File</summary>
       <div class="menu-panel">
+        <button type="button" (click)="requestSave(); closeMenus()">
+          <span class="menu-check"></span>
+          Save
+          <kbd>Ctrl S</kbd>
+        </button>
+        <hr />
         <button type="button" (click)="newSheet(); closeMenus()">
           <span class="menu-check">＋</span>
           New sheet
@@ -36,6 +42,12 @@
           <span class="menu-check">⌫</span>
           Clear cell
           <kbd>Del</kbd>
+        </button>
+        <hr />
+        <button type="button" (click)="selectAll(); closeMenus()">
+          <span class="menu-check"></span>
+          Select all
+          <kbd>Ctrl A</kbd>
         </button>
       </div>
     </details>

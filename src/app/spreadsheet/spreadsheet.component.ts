@@ -109,6 +109,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   @Output() cellChange = new EventEmitter<{ row: number; column: number; value: string }>();
   @Output() sheetChange = new EventEmitter<void>();
   @Output() saved = new EventEmitter<void>();
+  @Output() saveRequested = new EventEmitter<void>();
 
   readonly icons = {
     cilActionRedo,
@@ -338,6 +339,15 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     this.focusGrid();
   }
 
+  selectAll(): void {
+    this.commitEdit('none', false);
+    this.activeCell = { row: 0, column: 0 };
+    this.selectionAnchor = { row: this.rows - 1, column: this.columns - 1 };
+    this.formulaValue = this.activeCellData.value;
+    this.focusGrid();
+    this.scrollActiveIntoView();
+  }
+
   startCellSelection(event: PointerEvent, row: number, column: number): void {
     if (event.button !== 0 || (event.target as HTMLElement).closest('.cell-editor')) {
       return;
@@ -506,6 +516,10 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   }
 
   onEditorKeydown(event: KeyboardEvent): void {
+    if (this.isSaveShortcut(event)) {
+      return;
+    }
+
     event.stopPropagation();
 
     if (this.handleSuggestionKey(event)) {
@@ -576,6 +590,12 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
 
   private isFormulaEditing(): boolean {
     return this.formulaSource !== null && this.currentDraft().trimStart().startsWith('=');
+  }
+
+  private isSaveShortcut(event: KeyboardEvent): boolean {
+    return (event.ctrlKey || event.metaKey) &&
+      !event.altKey &&
+      event.key.toLowerCase() === 's';
   }
 
   private currentDraft(): string {
@@ -951,6 +971,10 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
           event.preventDefault();
           this.toggleStyle('underline');
           return;
+        case 'a':
+          event.preventDefault();
+          this.selectAll();
+          return;
       }
     }
 
@@ -1229,6 +1253,20 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     window.print();
   }
 
+  saveNow(): void {
+    this.commitEdit('none', true);
+
+    if (this.formulaSource === 'formula') {
+      this.commitFormula();
+    }
+
+    this.flushSave();
+  }
+
+  requestSave(): void {
+    this.saveRequested.emit();
+  }
+
   closeMenus(): void {
     this.menuRefs?.forEach(menu => menu.nativeElement.open = false);
   }
@@ -1398,13 +1436,27 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     }
 
     this.saveTimer = setTimeout(() => {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(this.takeSnapshot()));
-        this.saved.emit();
-      } catch {
-        return;
-      }
+      this.saveTimer = undefined;
+      this.persist();
     }, 400);
+  }
+
+  private flushSave(): void {
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer);
+      this.saveTimer = undefined;
+    }
+
+    this.persist();
+  }
+
+  private persist(): void {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.takeSnapshot()));
+      this.saved.emit();
+    } catch {
+      return;
+    }
   }
 
   private resetDisplayValues(): void {
