@@ -255,10 +255,6 @@
   width: 48px;
 }
 
-.grid .cell-col {
-  width: 128px;
-}
-
 .grid th {
   height: 30px;
   padding: 0;
@@ -268,6 +264,7 @@
   color: var(--text-muted);
   font-size: 12px;
   font-weight: 500;
+  user-select: none;
 }
 
 .grid .corner {
@@ -283,6 +280,42 @@
   top: 0;
   z-index: 3;
   text-align: center;
+}
+
+.col-resize {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 1;
+  width: 8px;
+  height: 100%;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.col-resize::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 2px;
+  bottom: 4px;
+  width: 2px;
+  border-radius: 1px;
+  background: transparent;
+  transition: background 0.12s;
+}
+
+.col-header:hover .col-resize::after {
+  background: var(--border-strong);
+}
+
+.col-header.resizing {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.col-header.resizing .col-resize::after {
+  background: var(--accent);
 }
 
 .grid .row-header {
@@ -303,6 +336,7 @@
   position: relative;
   height: 34px;
   padding: 0;
+  overflow: hidden;
   background: var(--cell-bg);
   border-right: 1px solid var(--border);
   border-bottom: 1px solid var(--border);

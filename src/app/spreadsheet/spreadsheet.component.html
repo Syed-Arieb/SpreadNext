@@ -178,18 +178,34 @@
     aria-label="Spreadsheet grid"
     (keydown)="onGridKeydown($event)"
   >
-    <table class="grid" [class.no-gridlines]="!showGridlines" [class.compact]="compactRows">
+    <table class="grid" [class.no-gridlines]="!showGridlines" [class.compact]="compactRows" [style.width.px]="gridWidth">
       <colgroup>
         <col class="row-number-col" />
         @for (column of columnIndices; track column) {
-          <col class="cell-col" />
+          <col [style.width.px]="columnWidth(column)" />
         }
       </colgroup>
       <thead>
         <tr>
           <th class="corner" scope="col"></th>
           @for (column of columnIndices; track column) {
-            <th class="col-header" scope="col" [class.active]="activeCell.column === column">{{ columnLabel(column) }}</th>
+            <th
+              class="col-header"
+              scope="col"
+              [class.active]="activeCell.column === column"
+              [class.resizing]="resizingColumn === column"
+            >
+              {{ columnLabel(column) }}
+              <span
+                class="col-resize"
+                title="Drag to resize. Double-click to reset."
+                (pointerdown)="startColumnResize($event, column)"
+                (pointermove)="resizeColumn($event)"
+                (pointerup)="endColumnResize($event)"
+                (pointercancel)="endColumnResize($event)"
+                (dblclick)="resetColumnWidth($event, column)"
+              ></span>
+            </th>
           }
         </tr>
       </thead>

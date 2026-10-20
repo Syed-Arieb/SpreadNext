@@ -51,12 +51,17 @@ interface SheetSnapshot {
   rows: number;
   columns: number;
   cells: Cell[][];
+  columnWidths: number[];
 }
 
 type MoveDirection = 'up' | 'down' | 'left' | 'right' | 'none';
 
 const DEFAULT_ROWS = 24;
 const DEFAULT_COLUMNS = 16;
+const DEFAULT_COLUMN_WIDTH = 128;
+const MIN_COLUMN_WIDTH = 56;
+const MAX_COLUMN_WIDTH = 480;
+const ROW_HEADER_WIDTH = 48;
 const MAX_HISTORY = 100;
 const STORAGE_KEY = 'spreadnext-sheet';
 
@@ -98,6 +103,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   };
 
   cellData: Cell[][] = [];
+  columnWidths: number[] = [];
   rowIndices: number[] = [];
   columnIndices: number[] = [];
 
@@ -111,6 +117,11 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
 
   showGridlines = true;
   compactRows = false;
+  resizingColumn: number | null = null;
+
+  private resizeStartX = 0;
+  private resizeStartWidth = 0;
+  private resizeDirty = false;
 
   @ViewChild('grid') private gridRef?: ElementRef<HTMLDivElement>;
   @ViewChild('cellEditor') private editorRef?: ElementRef<HTMLInputElement>;
@@ -128,6 +139,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     }
 
     this.rebuildIndices();
+    this.columnWidths = this.normalizeColumnWidths(this.columnWidths, this.columns);
     this.activeCell = { row: 0, column: 0 };
     this.formulaValue = this.cellAt(0, 0).value;
     this.history = [this.takeSnapshot()];
@@ -156,6 +168,14 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
 
   get activeAddress(): string {
     return `${this.columnLabel(this.activeCell.column)}${this.activeCell.row + 1}`;
+  }
+
+  get gridWidth(): number {
+    return ROW_HEADER_WIDTH + this.columnWidths.reduce((total, width) => total + width, 0);
+  }
+
+  columnWidth(column: number): number {
+    return this.columnWidths[column] ?? DEFAULT_COLUMN_WIDTH;
   }
 
   cellAt(row: number, column: number): Cell {
@@ -400,8 +420,66 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
 
   addColumn(): void {
     this.columns += 1;
+    this.columnWidths.push(DEFAULT_COLUMN_WIDTH);
     this.cellData.forEach(row => row.push(this.createCell()));
     this.rebuildIndices();
+    this.pushHistory();
+  }
+
+  startColumnResize(event: PointerEvent, column: number): void {
+    event.stopPropagation();
+
+    this.resizingColumn = column;
+    this.resizeStartX = event.clientX;
+    this.resizeStartWidth = this.columnWidth(column);
+    this.resizeDirty = false;
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+  }
+
+  resizeColumn(event: PointerEvent): void {
+    if (this.resizingColumn === null) {
+      return;
+    }
+
+    const width = this.clamp(
+      Math.round(this.resizeStartWidth + event.clientX - this.resizeStartX),
+      MIN_COLUMN_WIDTH,
+      MAX_COLUMN_WIDTH
+    );
+
+    if (width !== this.columnWidths[this.resizingColumn]) {
+      this.columnWidths[this.resizingColumn] = width;
+      this.resizeDirty = true;
+    }
+  }
+
+  endColumnResize(event: PointerEvent): void {
+    if (this.resizingColumn === null) {
+      return;
+    }
+
+    const handle = event.currentTarget as HTMLElement;
+    if (handle.hasPointerCapture(event.pointerId)) {
+      handle.releasePointerCapture(event.pointerId);
+    }
+
+    this.resizingColumn = null;
+
+    if (this.resizeDirty) {
+      this.pushHistory();
+      this.resizeDirty = false;
+    }
+  }
+
+  resetColumnWidth(event: MouseEvent, column: number): void {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (this.columnWidths[column] === DEFAULT_COLUMN_WIDTH) {
+      return;
+    }
+
+    this.columnWidths[column] = DEFAULT_COLUMN_WIDTH;
     this.pushHistory();
   }
 
@@ -486,6 +564,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     this.rows = DEFAULT_ROWS;
     this.columns = DEFAULT_COLUMNS;
     this.cellData = this.createCells(this.rows, this.columns);
+    this.columnWidths = this.normalizeColumnWidths([], this.columns);
     this.rebuildIndices();
     this.activeCell = { row: 0, column: 0 };
     this.formulaValue = '';
@@ -573,7 +652,8 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
       cells: this.cellData.map(row => row.map(cell => ({
         value: cell.value,
         style: { ...cell.style }
-      })))
+      }))),
+      columnWidths: [...this.columnWidths]
     };
   }
 
@@ -584,6 +664,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
       value: cell.value,
       style: { ...cell.style }
     })));
+    this.columnWidths = this.normalizeColumnWidths(snapshot.columnWidths, this.columns);
     this.rebuildIndices();
     this.activeCell = {
       row: this.clamp(this.activeCell.row, 0, this.rows - 1),
@@ -623,6 +704,17 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     };
   }
 
+  private normalizeColumnWidths(raw: unknown, columns: number): number[] {
+    const source = Array.isArray(raw) ? raw : [];
+
+    return Array.from({ length: columns }, (_, index) => {
+      const width = source[index];
+      return typeof width === 'number' && Number.isFinite(width)
+        ? this.clamp(Math.round(width), MIN_COLUMN_WIDTH, MAX_COLUMN_WIDTH)
+        : DEFAULT_COLUMN_WIDTH;
+    });
+  }
+
   private restore(): boolean {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -648,6 +740,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
           this.normalizeCell(data.cells?.[row]?.[column])
         )
       );
+      this.columnWidths = this.normalizeColumnWidths(data.columnWidths, this.columns);
       return true;
     } catch {
       return false;
