@@ -104,9 +104,10 @@
   width: 18px;
   height: 18px;
   color: var(--text-muted);
+  font-size: 18px;
 }
 
-.menu-icon svg {
+.menu-icon app-border-icon {
   width: 18px;
   height: 18px;
 }
@@ -119,11 +120,7 @@
   width: 16px;
   height: 16px;
   color: var(--accent);
-}
-
-.menu-check svg {
-  width: 14px;
-  height: 14px;
+  font-size: 14px;
 }
 
 .menu-panel kbd {
@@ -185,7 +182,11 @@
   transition: background 0.12s, color 0.12s, border-color 0.12s;
 }
 
-.tool svg {
+.tool ng-icon {
+  font-size: 16px;
+}
+
+.tool app-border-icon {
   width: 16px;
   height: 16px;
 }
@@ -678,9 +679,10 @@
   border: 1px solid var(--accent-border);
   border-radius: 12px;
   color: var(--accent);
+  font-size: 20px;
 }
 
-.export-heading-icon svg {
+.export-heading-icon app-border-icon {
   width: 20px;
   height: 20px;
 }
@@ -712,9 +714,8 @@
   transition: background 0.14s, border-color 0.14s, color 0.14s;
 }
 
-.export-close svg {
-  width: 16px;
-  height: 16px;
+.export-close ng-icon {
+  font-size: 16px;
 }
 
 .export-close:hover {
@@ -876,7 +877,7 @@
   cursor: pointer;
 }
 
-.border-preset svg {
+.border-preset app-border-icon {
   width: 19px;
   height: 19px;
 }
@@ -971,11 +972,7 @@
   width: 44px;
   height: 44px;
   border-radius: 12px;
-}
-
-.export-option-icon svg {
-  width: 22px;
-  height: 22px;
+  font-size: 22px;
 }
 
 .export-option--xlsx .export-option-icon {
@@ -1032,10 +1029,9 @@
   transition: color 0.16s, opacity 0.16s, transform 0.16s;
 }
 
-.export-option-arrow svg {
+.export-option-arrow ng-icon {
   display: block;
-  width: 16px;
-  height: 16px;
+  font-size: 16px;
 }
 
 .export-option:hover .export-option-arrow,

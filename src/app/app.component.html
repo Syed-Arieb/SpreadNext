@@ -2,7 +2,7 @@
   <header class="app-header">
     <div class="brand">
       <span class="brand-mark" aria-hidden="true">
-        <svg [cIcon]="icons.cilSpreadsheet"></svg>
+        <ng-icon name="lucideSheet"></ng-icon>
       </span>
       <span class="brand-name">{{ title }}</span>
     </div>
@@ -33,7 +33,7 @@
       [attr.aria-label]="darkMode ? 'Switch to light theme' : 'Switch to dark theme'"
       [title]="darkMode ? 'Switch to light theme' : 'Switch to dark theme'"
     >
-      <svg [cIcon]="darkMode ? icons.cilSun : icons.cilMoon" aria-hidden="true"></svg>
+      <ng-icon [name]="darkMode ? 'lucideSun' : 'lucideMoon'" aria-hidden="true"></ng-icon>
     </button>
   </header>
 

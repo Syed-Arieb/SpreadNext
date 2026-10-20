@@ -19,8 +19,8 @@
     "@angular/platform-browser": "^22.2.3",
     "@angular/platform-browser-dynamic": "^22.2.3",
     "@angular/router": "^22.2.3",
-    "@coreui/icons": "^3.1.0",
-    "@coreui/icons-angular": "^5.7.37",
+    "@ng-icons/core": "^36.1.0",
+    "@ng-icons/lucide": "^36.1.0",
     "rxjs": "~7.8.2",
     "tslib": "^2.3.0",
     "zone.js": "~0.16.3"

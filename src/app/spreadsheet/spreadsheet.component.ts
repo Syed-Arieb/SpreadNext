@@ -13,44 +13,8 @@ import {
   ViewChild,
   ViewChildren
 } from '@angular/core';
-import {
-  cilActionRedo,
-  cilActionUndo,
-  cilAlignCenter,
-  cilAlignLeft,
-  cilAlignRight,
-  cilArrowRight,
-  cilBold,
-  cilBorderAll,
-  cilBorderBottom,
-  cilBorderClear,
-  cilBorderHorizontal,
-  cilBorderInner,
-  cilBorderLeft,
-  cilBorderOuter,
-  cilBorderRight,
-  cilBorderTop,
-  cilBorderVertical,
-  cilBrushAlt,
-  cilCheck,
-  cilCloudDownload,
-  cilColorFill,
-  cilDescription,
-  cilGrid,
-  cilGridSlash,
-  cilItalic,
-  cilPlus,
-  cilPrint,
-  cilSave,
-  cilShortText,
-  cilSpreadsheet,
-  cilSquare,
-  cilStrikethrough,
-  cilTrash,
-  cilUnderline,
-  cilX
-} from '@coreui/icons';
-import { IconDirective } from '@coreui/icons-angular';
+
+import { NgIcon } from '@ng-icons/core';
 import {
   BorderLineStyle,
   BorderPreset,
@@ -78,6 +42,7 @@ import { FormulaEngine } from './formula-engine';
 import { FORMULA_FUNCTIONS, FormulaFunction } from './formula-functions';
 import { FormulaReference, parseFormulaReferences } from './formula-references';
 import { normalizeFormula } from './formula-text';
+import { BorderIconComponent } from './border-icon.component';
 
 export type { CellAlign, CellStyle };
 
@@ -157,7 +122,7 @@ function contrastTextColor(background: string | null): string | null {
 
 @Component({
   selector: 'app-spreadsheet',
-  imports: [IconDirective],
+  imports: [NgIcon, BorderIconComponent],
   templateUrl: './spreadsheet.component.html',
   styleUrl: './spreadsheet.component.css',
   changeDetection: ChangeDetectionStrategy.Eager
@@ -172,35 +137,6 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   @Output() saved = new EventEmitter<void>();
   @Output() titleReset = new EventEmitter<void>();
 
-  readonly icons = {
-    cilActionRedo,
-    cilActionUndo,
-    cilAlignCenter,
-    cilAlignLeft,
-    cilAlignRight,
-    cilArrowRight,
-    cilBold,
-    cilBorderAll,
-    cilBrushAlt,
-    cilCheck,
-    cilCloudDownload,
-    cilColorFill,
-    cilDescription,
-    cilGrid,
-    cilGridSlash,
-    cilItalic,
-    cilPlus,
-    cilPrint,
-    cilSave,
-    cilShortText,
-    cilSpreadsheet,
-    cilSquare,
-    cilStrikethrough,
-    cilTrash,
-    cilUnderline,
-    cilX
-  };
-
   readonly fillColors = FILL_COLORS;
   readonly borderLineStyles: { value: BorderLineStyle; label: string }[] = [
     { value: 'thin', label: 'Thin' },
@@ -210,19 +146,19 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     { value: 'dotted', label: 'Dotted' },
     { value: 'double', label: 'Double' }
   ];
-  readonly borderPresets: { id: BorderPreset; label: string; icon?: string[] }[] = [
-    { id: 'all', label: 'All', icon: cilBorderAll },
-    { id: 'outer', label: 'Outer', icon: cilBorderOuter },
-    { id: 'inner', label: 'Inner', icon: cilBorderInner },
-    { id: 'horizontal', label: 'Horizontal', icon: cilBorderHorizontal },
-    { id: 'vertical', label: 'Vertical', icon: cilBorderVertical },
-    { id: 'top', label: 'Top', icon: cilBorderTop },
-    { id: 'right', label: 'Right', icon: cilBorderRight },
-    { id: 'bottom', label: 'Bottom', icon: cilBorderBottom },
-    { id: 'left', label: 'Left', icon: cilBorderLeft },
+  readonly borderPresets: { id: BorderPreset; label: string }[] = [
+    { id: 'all', label: 'All' },
+    { id: 'outer', label: 'Outer' },
+    { id: 'inner', label: 'Inner' },
+    { id: 'horizontal', label: 'Horizontal' },
+    { id: 'vertical', label: 'Vertical' },
+    { id: 'top', label: 'Top' },
+    { id: 'right', label: 'Right' },
+    { id: 'bottom', label: 'Bottom' },
+    { id: 'left', label: 'Left' },
     { id: 'diagonalDown', label: 'Diagonal' },
     { id: 'diagonalUp', label: 'Diagonal up' },
-    { id: 'none', label: 'None', icon: cilBorderClear }
+    { id: 'none', label: 'None' }
   ];
 
   cellData: Cell[][] = [];

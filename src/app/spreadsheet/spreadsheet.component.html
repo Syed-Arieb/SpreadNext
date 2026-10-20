@@ -4,30 +4,30 @@
       <summary>File</summary>
       <div class="menu-panel">
         <button type="button" (click)="openExportMenu()">
-          <span class="menu-icon" aria-hidden="true"><svg [cIcon]="icons.cilSave"></svg></span>
+          <span class="menu-icon" aria-hidden="true"><ng-icon name="lucideSave"></ng-icon></span>
           <span class="menu-check" aria-hidden="true"></span>
           Save as...
           <kbd>Ctrl S</kbd>
         </button>
         <hr />
         <button type="button" (click)="requestNewSheet()">
-          <span class="menu-icon" aria-hidden="true"><svg [cIcon]="icons.cilPlus"></svg></span>
+          <span class="menu-icon" aria-hidden="true"><ng-icon name="lucidePlus"></ng-icon></span>
           <span class="menu-check" aria-hidden="true"></span>
           New sheet
           <kbd>Shift F11</kbd>
         </button>
         <button type="button" (click)="exportXlsx(); closeMenus()">
-          <span class="menu-icon" aria-hidden="true"><svg [cIcon]="icons.cilSpreadsheet"></svg></span>
+          <span class="menu-icon" aria-hidden="true"><ng-icon name="lucideFileSpreadsheet"></ng-icon></span>
           <span class="menu-check" aria-hidden="true"></span>
           Download XLSX
         </button>
         <button type="button" (click)="exportCsv(); closeMenus()">
-          <span class="menu-icon" aria-hidden="true"><svg [cIcon]="icons.cilDescription"></svg></span>
+          <span class="menu-icon" aria-hidden="true"><ng-icon name="lucideFileText"></ng-icon></span>
           <span class="menu-check" aria-hidden="true"></span>
           Download CSV
         </button>
         <button type="button" (click)="printSheet(); closeMenus()">
-          <span class="menu-icon" aria-hidden="true"><svg [cIcon]="icons.cilPrint"></svg></span>
+          <span class="menu-icon" aria-hidden="true"><ng-icon name="lucidePrinter"></ng-icon></span>
           <span class="menu-check" aria-hidden="true"></span>
           Print
         </button>
@@ -38,32 +38,32 @@
       <summary>Edit</summary>
       <div class="menu-panel">
         <button type="button" [disabled]="!canUndo" (click)="undo(); closeMenus()">
-          <span class="menu-icon" aria-hidden="true"><svg [cIcon]="icons.cilActionUndo"></svg></span>
+          <span class="menu-icon" aria-hidden="true"><ng-icon name="lucideUndo2"></ng-icon></span>
           <span class="menu-check" aria-hidden="true"></span>
           Undo
           <kbd>Ctrl Z</kbd>
         </button>
         <button type="button" [disabled]="!canRedo" (click)="redo(); closeMenus()">
-          <span class="menu-icon" aria-hidden="true"><svg [cIcon]="icons.cilActionRedo"></svg></span>
+          <span class="menu-icon" aria-hidden="true"><ng-icon name="lucideRedo2"></ng-icon></span>
           <span class="menu-check" aria-hidden="true"></span>
           Redo
           <kbd>Ctrl Y</kbd>
         </button>
         <hr />
         <button type="button" (click)="clearActiveCell(); closeMenus()">
-          <span class="menu-icon" aria-hidden="true"><svg [cIcon]="icons.cilTrash"></svg></span>
+          <span class="menu-icon" aria-hidden="true"><ng-icon name="lucideTrash2"></ng-icon></span>
           <span class="menu-check" aria-hidden="true"></span>
           Clear cell
           <kbd>Del</kbd>
         </button>
         <button type="button" (click)="clearFormatting(); closeMenus()" [disabled]="!selectionHasFormatting">
-          <span class="menu-icon" aria-hidden="true"><svg [cIcon]="icons.cilBrushAlt"></svg></span>
+          <span class="menu-icon" aria-hidden="true"><ng-icon name="lucideEraser"></ng-icon></span>
           <span class="menu-check" aria-hidden="true"></span>
           Clear formatting
         </button>
         <hr />
         <button type="button" (click)="selectAll(); closeMenus()">
-          <span class="menu-icon" aria-hidden="true"><svg [cIcon]="icons.cilSquare"></svg></span>
+          <span class="menu-icon" aria-hidden="true"><ng-icon name="lucideTriangle"></ng-icon></span>
           <span class="menu-check" aria-hidden="true"></span>
           Select all
           <kbd>Ctrl A</kbd>
@@ -77,21 +77,21 @@
         <button type="button" (click)="toggleGridlines(); closeMenus()"
           aria-pressed="showGridlines">
           <span class="menu-icon" aria-hidden="true">
-            <svg [cIcon]="showGridlines ? icons.cilGrid : icons.cilGridSlash"></svg>
+            <ng-icon name="lucideGrid3x3"></ng-icon>
           </span>
           <span class="menu-check" aria-hidden="true">
             @if (showGridlines) {
-              <svg [cIcon]="icons.cilCheck"></svg>
+              <ng-icon name="lucideCheck"></ng-icon>
             }
           </span>
           Gridlines
         </button>
         <button type="button" (click)="toggleCompactRows(); closeMenus()"
           aria-pressed="compactRows">
-          <span class="menu-icon" aria-hidden="true"><svg [cIcon]="icons.cilShortText"></svg></span>
+          <span class="menu-icon" aria-hidden="true"><ng-icon name="lucideRows2"></ng-icon></span>
           <span class="menu-check" aria-hidden="true">
             @if (compactRows) {
-              <svg [cIcon]="icons.cilCheck"></svg>
+              <ng-icon name="lucideCheck"></ng-icon>
             }
           </span>
           Compact rows
@@ -104,10 +104,10 @@
       <div class="menu-panel">
         <button type="button" (click)="toggleStyle('bold'); closeMenus()"
           aria-pressed="activeCellData.style.bold">
-          <span class="menu-icon" aria-hidden="true"><svg [cIcon]="icons.cilBold"></svg></span>
+          <span class="menu-icon" aria-hidden="true"><ng-icon name="lucideBold"></ng-icon></span>
           <span class="menu-check" aria-hidden="true">
             @if (activeCellData.style.bold) {
-              <svg [cIcon]="icons.cilCheck"></svg>
+              <ng-icon name="lucideCheck"></ng-icon>
             }
           </span>
           Bold
@@ -115,10 +115,10 @@
         </button>
         <button type="button" (click)="toggleStyle('italic'); closeMenus()"
           aria-pressed="activeCellData.style.italic">
-          <span class="menu-icon" aria-hidden="true"><svg [cIcon]="icons.cilItalic"></svg></span>
+          <span class="menu-icon" aria-hidden="true"><ng-icon name="lucideItalic"></ng-icon></span>
           <span class="menu-check" aria-hidden="true">
             @if (activeCellData.style.italic) {
-              <svg [cIcon]="icons.cilCheck"></svg>
+              <ng-icon name="lucideCheck"></ng-icon>
             }
           </span>
           Italic
@@ -126,10 +126,10 @@
         </button>
         <button type="button" (click)="toggleStyle('underline'); closeMenus()"
           aria-pressed="activeCellData.style.underline">
-          <span class="menu-icon" aria-hidden="true"><svg [cIcon]="icons.cilUnderline"></svg></span>
+          <span class="menu-icon" aria-hidden="true"><ng-icon name="lucideUnderline"></ng-icon></span>
           <span class="menu-check" aria-hidden="true">
             @if (activeCellData.style.underline) {
-              <svg [cIcon]="icons.cilCheck"></svg>
+              <ng-icon name="lucideCheck"></ng-icon>
             }
           </span>
           Underline
@@ -137,10 +137,10 @@
         </button>
         <button type="button" (click)="toggleStyle('strike'); closeMenus()"
           aria-pressed="activeCellData.style.strike">
-          <span class="menu-icon" aria-hidden="true"><svg [cIcon]="icons.cilStrikethrough"></svg></span>
+          <span class="menu-icon" aria-hidden="true"><ng-icon name="lucideStrikethrough"></ng-icon></span>
           <span class="menu-check" aria-hidden="true">
             @if (activeCellData.style.strike) {
-              <svg [cIcon]="icons.cilCheck"></svg>
+              <ng-icon name="lucideCheck"></ng-icon>
             }
           </span>
           Strikethrough
@@ -148,48 +148,48 @@
         <hr />
         <button type="button" (click)="setAlignment('left'); closeMenus()"
           aria-pressed="activeCellData.style.align === 'left'">
-          <span class="menu-icon" aria-hidden="true"><svg [cIcon]="icons.cilAlignLeft"></svg></span>
+          <span class="menu-icon" aria-hidden="true"><ng-icon name="lucideAlignLeft"></ng-icon></span>
           <span class="menu-check" aria-hidden="true">
             @if (activeCellData.style.align === 'left') {
-              <svg [cIcon]="icons.cilCheck"></svg>
+              <ng-icon name="lucideCheck"></ng-icon>
             }
           </span>
           Align left
         </button>
         <button type="button" (click)="setAlignment('center'); closeMenus()"
           aria-pressed="activeCellData.style.align === 'center'">
-          <span class="menu-icon" aria-hidden="true"><svg [cIcon]="icons.cilAlignCenter"></svg></span>
+          <span class="menu-icon" aria-hidden="true"><ng-icon name="lucideAlignCenter"></ng-icon></span>
           <span class="menu-check" aria-hidden="true">
             @if (activeCellData.style.align === 'center') {
-              <svg [cIcon]="icons.cilCheck"></svg>
+              <ng-icon name="lucideCheck"></ng-icon>
             }
           </span>
           Align center
         </button>
         <button type="button" (click)="setAlignment('right'); closeMenus()"
           aria-pressed="activeCellData.style.align === 'right'">
-          <span class="menu-icon" aria-hidden="true"><svg [cIcon]="icons.cilAlignRight"></svg></span>
+          <span class="menu-icon" aria-hidden="true"><ng-icon name="lucideAlignRight"></ng-icon></span>
           <span class="menu-check" aria-hidden="true">
             @if (activeCellData.style.align === 'right') {
-              <svg [cIcon]="icons.cilCheck"></svg>
+              <ng-icon name="lucideCheck"></ng-icon>
             }
           </span>
           Align right
         </button>
         <hr />
         <button type="button" (click)="openFillDialog()">
-          <span class="menu-icon" aria-hidden="true"><svg [cIcon]="icons.cilColorFill"></svg></span>
+          <span class="menu-icon" aria-hidden="true"><ng-icon name="lucidePaintBucket"></ng-icon></span>
           <span class="menu-check" aria-hidden="true"></span>
           Fill color...
         </button>
         <button type="button" (click)="openBorderDialog()">
-          <span class="menu-icon" aria-hidden="true"><svg [cIcon]="icons.cilBorderAll"></svg></span>
+          <span class="menu-icon" aria-hidden="true"><app-border-icon preset="all"></app-border-icon></span>
           <span class="menu-check" aria-hidden="true"></span>
           Cell borders...
         </button>
         <hr />
         <button type="button" (click)="clearFormatting(); closeMenus()" [disabled]="!selectionHasFormatting">
-          <span class="menu-icon" aria-hidden="true"><svg [cIcon]="icons.cilBrushAlt"></svg></span>
+          <span class="menu-icon" aria-hidden="true"><ng-icon name="lucideEraser"></ng-icon></span>
           <span class="menu-check" aria-hidden="true"></span>
           Clear formatting
         </button>
@@ -200,10 +200,10 @@
   <div class="toolbar" role="toolbar" aria-label="Formatting toolbar">
     <div class="tool-group">
       <button type="button" class="tool" title="Undo (Ctrl+Z)" aria-label="Undo" [disabled]="!canUndo" (click)="undo()">
-        <svg [cIcon]="icons.cilActionUndo" aria-hidden="true"></svg>
+        <ng-icon name="lucideUndo2" aria-hidden="true"></ng-icon>
       </button>
       <button type="button" class="tool" title="Redo (Ctrl+Y)" aria-label="Redo" [disabled]="!canRedo" (click)="redo()">
-        <svg [cIcon]="icons.cilActionRedo" aria-hidden="true"></svg>
+        <ng-icon name="lucideRedo2" aria-hidden="true"></ng-icon>
       </button>
     </div>
 
@@ -211,16 +211,16 @@
 
     <div class="tool-group">
       <button type="button" class="tool" title="Bold (Ctrl+B)" aria-label="Bold" [class.is-active]="activeCellData.style.bold" (click)="toggleStyle('bold')">
-        <svg [cIcon]="icons.cilBold" aria-hidden="true"></svg>
+        <ng-icon name="lucideBold" aria-hidden="true"></ng-icon>
       </button>
       <button type="button" class="tool" title="Italic (Ctrl+I)" aria-label="Italic" [class.is-active]="activeCellData.style.italic" (click)="toggleStyle('italic')">
-        <svg [cIcon]="icons.cilItalic" aria-hidden="true"></svg>
+        <ng-icon name="lucideItalic" aria-hidden="true"></ng-icon>
       </button>
       <button type="button" class="tool" title="Underline (Ctrl+U)" aria-label="Underline" [class.is-active]="activeCellData.style.underline" (click)="toggleStyle('underline')">
-        <svg [cIcon]="icons.cilUnderline" aria-hidden="true"></svg>
+        <ng-icon name="lucideUnderline" aria-hidden="true"></ng-icon>
       </button>
       <button type="button" class="tool" title="Strikethrough" aria-label="Strikethrough" [class.is-active]="activeCellData.style.strike" (click)="toggleStyle('strike')">
-        <svg [cIcon]="icons.cilStrikethrough" aria-hidden="true"></svg>
+        <ng-icon name="lucideStrikethrough" aria-hidden="true"></ng-icon>
       </button>
     </div>
 
@@ -228,13 +228,13 @@
 
     <div class="tool-group">
       <button type="button" class="tool" title="Align left" aria-label="Align left" [class.is-active]="activeCellData.style.align === 'left'" (click)="setAlignment('left')">
-        <svg [cIcon]="icons.cilAlignLeft" aria-hidden="true"></svg>
+        <ng-icon name="lucideAlignLeft" aria-hidden="true"></ng-icon>
       </button>
       <button type="button" class="tool" title="Align center" aria-label="Align center" [class.is-active]="activeCellData.style.align === 'center'" (click)="setAlignment('center')">
-        <svg [cIcon]="icons.cilAlignCenter" aria-hidden="true"></svg>
+        <ng-icon name="lucideAlignCenter" aria-hidden="true"></ng-icon>
       </button>
       <button type="button" class="tool" title="Align right" aria-label="Align right" [class.is-active]="activeCellData.style.align === 'right'" (click)="setAlignment('right')">
-        <svg [cIcon]="icons.cilAlignRight" aria-hidden="true"></svg>
+        <ng-icon name="lucideAlignRight" aria-hidden="true"></ng-icon>
       </button>
     </div>
 
@@ -249,7 +249,7 @@
         [class.is-active]="activeCellData.style.background"
         (click)="openFillDialog()"
       >
-        <svg [cIcon]="icons.cilColorFill" aria-hidden="true"></svg>
+        <ng-icon name="lucidePaintBucket" aria-hidden="true"></ng-icon>
         <span
           class="fill-swatch"
           aria-hidden="true"
@@ -264,7 +264,7 @@
         [class.is-active]="activeCellHasBorders"
         (click)="openBorderDialog()"
       >
-        <svg [cIcon]="icons.cilBorderAll" aria-hidden="true"></svg>
+        <app-border-icon preset="all" aria-hidden="true"></app-border-icon>
       </button>
       <button
         type="button"
@@ -275,7 +275,7 @@
         [attr.aria-pressed]="showGridlines"
         (click)="toggleGridlines()"
       >
-        <svg [cIcon]="icons.cilGrid" aria-hidden="true"></svg>
+        <ng-icon name="lucideGrid3x3" aria-hidden="true"></ng-icon>
       </button>
     </div>
 
@@ -283,11 +283,11 @@
 
     <div class="tool-group">
       <button type="button" class="tool tool-label" title="Add a row at the bottom" (click)="addRow()">
-        <svg [cIcon]="icons.cilPlus" aria-hidden="true"></svg>
+        <ng-icon name="lucidePlus" aria-hidden="true"></ng-icon>
         Row
       </button>
       <button type="button" class="tool tool-label" title="Add a column at the right" (click)="addColumn()">
-        <svg [cIcon]="icons.cilPlus" aria-hidden="true"></svg>
+        <ng-icon name="lucidePlus" aria-hidden="true"></ng-icon>
         Column
       </button>
     </div>
@@ -295,7 +295,7 @@
     <span class="toolbar-spacer"></span>
 
     <button type="button" class="tool tool-label" title="Choose a save format" (click)="openExportMenu()">
-      <svg [cIcon]="icons.cilCloudDownload" aria-hidden="true"></svg>
+      <ng-icon name="lucideCloudDownload" aria-hidden="true"></ng-icon>
       Export
     </button>
   </div>
@@ -489,7 +489,7 @@
       >
         <header class="export-header">
           <span class="export-heading-icon" aria-hidden="true">
-            <svg [cIcon]="icons.cilCloudDownload"></svg>
+            <ng-icon name="lucideCloudDownload"></ng-icon>
           </span>
           <div class="export-heading">
             <h2 id="export-title">Export sheet</h2>
@@ -500,7 +500,7 @@
             aria-label="Close export dialog"
             (click)="closeExportMenu()"
           >
-            <svg [cIcon]="icons.cilX" aria-hidden="true"></svg>
+            <ng-icon name="lucideX" aria-hidden="true"></ng-icon>
           </button>
         </header>
 
@@ -516,7 +516,7 @@
             (click)="saveAsXlsx()"
           >
             <span class="export-option-icon" aria-hidden="true">
-              <svg [cIcon]="icons.cilSpreadsheet"></svg>
+              <ng-icon name="lucideFileSpreadsheet"></ng-icon>
             </span>
             <span class="export-option-body">
               <span class="export-option-title">
@@ -527,7 +527,7 @@
                 Excel workbook with cell values.
               </span>
             </span>
-            <svg class="export-option-arrow" [cIcon]="icons.cilArrowRight" aria-hidden="true"></svg>
+            <ng-icon class="export-option-arrow" name="lucideArrowRight" aria-hidden="true"></ng-icon>
           </button>
 
           <button
@@ -536,7 +536,7 @@
             (click)="saveAsCsv()"
           >
             <span class="export-option-icon" aria-hidden="true">
-              <svg [cIcon]="icons.cilGrid"></svg>
+              <ng-icon name="lucideTable"></ng-icon>
             </span>
             <span class="export-option-body">
               <span class="export-option-title">CSV</span>
@@ -544,12 +544,12 @@
                 Plain text for any data tool.
               </span>
             </span>
-            <svg class="export-option-arrow" [cIcon]="icons.cilArrowRight" aria-hidden="true"></svg>
+            <ng-icon class="export-option-arrow" name="lucideArrowRight" aria-hidden="true"></ng-icon>
           </button>
 
           <button type="button" class="export-option export-option--pdf" (click)="saveAsPdf()">
             <span class="export-option-icon" aria-hidden="true">
-              <svg [cIcon]="icons.cilDescription"></svg>
+              <ng-icon name="lucideFileText"></ng-icon>
             </span>
             <span class="export-option-body">
               <span class="export-option-title">PDF</span>
@@ -557,7 +557,7 @@
                 Print or save as PDF.
               </span>
             </span>
-            <svg class="export-option-arrow" [cIcon]="icons.cilArrowRight" aria-hidden="true"></svg>
+            <ng-icon class="export-option-arrow" name="lucideArrowRight" aria-hidden="true"></ng-icon>
           </button>
         </div>
       </section>
@@ -577,7 +577,7 @@
       >
         <header class="export-header">
           <span class="export-heading-icon" aria-hidden="true">
-            <svg [cIcon]="icons.cilPlus"></svg>
+            <ng-icon name="lucidePlus"></ng-icon>
           </span>
           <div class="export-heading">
             <h2 id="new-sheet-title">New sheet?</h2>
@@ -622,7 +622,7 @@
       >
         <header class="export-header">
           <span class="export-heading-icon" aria-hidden="true">
-            <svg [cIcon]="icons.cilColorFill"></svg>
+            <ng-icon name="lucidePaintBucket"></ng-icon>
           </span>
           <div class="export-heading">
             <h2 id="fill-title">Fill color</h2>
@@ -633,7 +633,7 @@
             aria-label="Close fill dialog"
             (click)="closeFillDialog()"
           >
-            <svg [cIcon]="icons.cilX" aria-hidden="true"></svg>
+            <ng-icon name="lucideX" aria-hidden="true"></ng-icon>
           </button>
         </header>
 
@@ -688,7 +688,7 @@
       >
         <header class="export-header">
           <span class="export-heading-icon" aria-hidden="true">
-            <svg [cIcon]="icons.cilBorderAll"></svg>
+            <app-border-icon preset="all"></app-border-icon>
           </span>
           <div class="export-heading">
             <h2 id="border-title">Cell borders</h2>
@@ -699,7 +699,7 @@
             aria-label="Close border dialog"
             (click)="closeBorderDialog()"
           >
-            <svg [cIcon]="icons.cilX" aria-hidden="true"></svg>
+            <ng-icon name="lucideX" aria-hidden="true"></ng-icon>
           </button>
         </header>
 
@@ -715,15 +715,7 @@
                 [attr.aria-label]="preset.label + ' borders'"
                 (click)="applyBorderPreset(preset.id)"
               >
-                @if (preset.icon) {
-                  <svg [cIcon]="preset.icon" aria-hidden="true"></svg>
-                } @else {
-                  <span
-                    class="border-diagonal"
-                    [class.is-up]="preset.id === 'diagonalUp'"
-                    aria-hidden="true"
-                  ></span>
-                }
+                <app-border-icon [preset]="preset.id"></app-border-icon>
                 <span>{{ preset.label }}</span>
               </button>
             }

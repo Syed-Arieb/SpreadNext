@@ -37,11 +37,7 @@
   background: linear-gradient(135deg, var(--accent), #7c5cff);
   color: #fff;
   box-shadow: 0 4px 14px var(--accent-soft);
-}
-
-.brand-mark svg {
-  width: 19px;
-  height: 19px;
+  font-size: 19px;
 }
 
 .brand-name {
@@ -123,15 +119,12 @@
   border-radius: 8px;
   color: var(--text-muted);
   cursor: pointer;
-  transition: background 0.12s, color 0.12s, border-color 0.12s;
-}
-
-.icon-button svg {
-  width: 18px;
-  height: 18px;
+  transition: background 0.12s, color 0.12s;
+  font-size: 18px;
 }
 
 .icon-button:hover {
+
   background: var(--surface-2);
   border-color: var(--border);
   color: var(--text);

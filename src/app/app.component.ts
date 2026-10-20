@@ -1,18 +1,16 @@
 import { ChangeDetectionStrategy, Component, HostListener, ViewChild } from '@angular/core';
-import { cilMoon, cilSpreadsheet, cilSun } from '@coreui/icons';
-import { IconDirective } from '@coreui/icons-angular';
+import { NgIcon } from '@ng-icons/core';
 import { SpreadsheetComponent } from './spreadsheet/spreadsheet.component';
 
 @Component({
   selector: 'app-root',
-  imports: [SpreadsheetComponent, IconDirective],
+  imports: [SpreadsheetComponent, NgIcon],
   templateUrl: './app.component.html',
   changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './app.component.css'
 })
 export class AppComponent {
   readonly title = 'SpreadNext';
-  readonly icons = { cilMoon, cilSpreadsheet, cilSun };
 
   documentTitle = 'Untitled spreadsheet';
   unsavedChanges = false;
