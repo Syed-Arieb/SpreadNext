@@ -1,13 +1,12 @@
-import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 @Component({
-  selector: 'app-spreadsheet',
-  standalone: true,
-  imports: [CommonModule, FormsModule],
-  templateUrl: './spreadsheet.component.html',
-  styleUrl: './spreadsheet.component.css'
+    selector: 'app-spreadsheet',
+    imports: [FormsModule],
+    templateUrl: './spreadsheet.component.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
+    styleUrl: './spreadsheet.component.css'
 })
 export class SpreadsheetComponent {
   @Input() rows: number = 4;
