@@ -1267,6 +1267,8 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   }
 
   private scheduleRecalculate(): void {
+    this.recalculateVersion += 1;
+
     if (this.recalculateTimer) {
       clearTimeout(this.recalculateTimer);
     }
@@ -1275,7 +1277,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   }
 
   private async recalculate(): Promise<void> {
-    const version = ++this.recalculateVersion;
+    const version = this.recalculateVersion;
     const rows = this.rows;
     const columns = this.columns;
     const cells = this.cellData.map(row => row.map(cell => cell.value));
