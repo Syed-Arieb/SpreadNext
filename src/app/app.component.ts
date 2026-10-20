@@ -93,6 +93,12 @@ export class AppComponent {
       return;
     }
 
+    if (event.key === 'F11' && event.shiftKey) {
+      event.preventDefault();
+      this.sheetRef?.requestNewSheet();
+      return;
+    }
+
     if (!(event.ctrlKey || event.metaKey)) {
       return;
     }
@@ -102,12 +108,6 @@ export class AppComponent {
     if (key === 's') {
       event.preventDefault();
       this.sheetRef?.openExportMenu();
-      return;
-    }
-
-    if (key === 'n') {
-      event.preventDefault();
-      this.sheetRef?.requestNewSheet();
     }
   }
 
