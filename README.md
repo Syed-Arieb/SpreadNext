@@ -1,32 +1,28 @@
 # SpreadNext
 
-SpreadNext is a web-based spreadsheet application built using Angular. This project provides a dynamic and interactive interface for managing and manipulating data in spreadsheet format.
+SpreadNext is a spreadsheet web app built with Angular and Rust. It has an editable grid, formulas, cell styling, range selection, undo and redo, autosave, and CSV export.
 
 ![SpreadNext Screenshot](https://github.com/user-attachments/assets/f14183e9-b087-46f6-bae9-dd3db116e028)
 
-## Table of Contents
-
-- [Introduction](#introduction)
-- [Features](#features)
-- [Installation](#installation)
-- [Development Server](#development-server)
-- [Contributing](#contributing)
-- [License](#license)
-
-## Introduction
-
-SpreadNext is an Angular-based project that offers a robust and user-friendly web-based spreadsheet solution. It provides various functionalities to handle data effectively, similar to popular spreadsheet applications but entirely in a web environment.
-
 ## Features
 
-- Interactive and dynamic spreadsheet interface
-- Real-time data manipulation and visualization
-- Supports various data formats and functions
-- Responsive design for optimal user experience across devices
+- Excel-style formulas with autocomplete
+- Click or drag cells to add references to a formula
+- Formula engine written in Rust and compiled to WebAssembly
+- Bold, italic, underline, strikethrough, and text alignment
+- Drag selection, Shift-click selection, and range stats
+- Resizable columns and fixed row heights
+- Undo, redo, and autosave in the browser
+- Dark and light themes
+- CSV export and print
+- Gridline and compact row options
 
-## Installation
+## Requirements
 
-To get started with SpreadNext, clone the repository and install the necessary dependencies.
+- Node.js and npm
+- Rust with the `wasm32-unknown-unknown` target, only if you want to rebuild the formula engine
+
+## Setup
 
 ```bash
 git clone https://github.com/Syed-Arieb/spreadnext.git
@@ -34,20 +30,42 @@ cd spreadnext
 npm install
 ```
 
-## Development Server
-
-To start the development server, run the following command:
+## Run Locally
 
 ```bash
-ng serve
+npm start
 ```
 
-Navigate to http://localhost:4200/ in your browser. The application will automatically reload if you make any changes to the source files.
+Open `http://localhost:4200/`. The app reloads when source files change.
 
-## Contributing
+## Build
 
-Contributions are welcome! If you'd like to contribute, please fork the repository, create a new branch for your feature or bugfix, and submit a pull request.
+```bash
+npm run build
+```
+
+The production files are written to `dist/spread-next`.
+
+## Tests
+
+```bash
+npm test
+```
+
+## Formula Engine
+
+The prebuilt engine is in `public/formula-engine.wasm`. You only need Rust to change the engine source in `engine/`.
+
+```bash
+rustup target add wasm32-unknown-unknown
+npm run build:wasm
+```
+
+## Documentation
+
+- [Contributing](docs/CONTRIBUTING.md)
+- [Security](docs/SECURITY.md)
 
 ## License
 
-This project is licensed under the MIT License.
+This project uses the MIT License. See [LICENSE](LICENSE).
