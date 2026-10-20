@@ -43,6 +43,7 @@ import { FORMULA_FUNCTIONS, FormulaFunction } from './formula-functions';
 import { FormulaReference, parseFormulaReferences } from './formula-references';
 import { normalizeFormula } from './formula-text';
 import { trimToUsedRange } from './sheet-range';
+import { insertColumn, insertRow, removeColumn, removeRow } from './sheet-edit';
 import { BorderIconComponent } from './border-icon.component';
 
 export type { CellAlign, CellStyle };
@@ -78,6 +79,12 @@ interface SheetSnapshot {
   columns: number;
   cells: Cell[][];
   columnWidths: number[];
+}
+
+interface ClipboardCells {
+  values: string[][];
+  cut: boolean;
+  origin: Selection;
 }
 
 type MoveDirection = 'up' | 'down' | 'left' | 'right' | 'none';
@@ -190,6 +197,9 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   confirmNewSheetOpen = false;
   fillDialogOpen = false;
   borderDialogOpen = false;
+  contextMenuOpen = false;
+  contextMenuX = 0;
+  contextMenuY = 0;
   fillPickerValue = '#fde047';
   borderLineStyle: BorderLineStyle = 'thin';
   borderColor = DEFAULT_BORDER_COLOR;
@@ -207,6 +217,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   private newSheetReturnFocus: HTMLElement | null = null;
   private fillReturnFocus: HTMLElement | null = null;
   private borderReturnFocus: HTMLElement | null = null;
+  private clipboard: ClipboardCells | null = null;
 
   private resizeStartX = 0;
   private resizeStartWidth = 0;
@@ -225,6 +236,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   @ViewChild('fillDialog') private fillDialogRef?: ElementRef<HTMLElement>;
   @ViewChild('borderFirst') private borderFirstRef?: ElementRef<HTMLButtonElement>;
   @ViewChild('borderDialog') private borderDialogRef?: ElementRef<HTMLElement>;
+  @ViewChild('contextMenu') private contextMenuRef?: ElementRef<HTMLElement>;
   @ViewChildren('menu') private menuRefs?: QueryList<ElementRef<HTMLDetailsElement>>;
 
   private history: SheetSnapshot[] = [];
@@ -1091,6 +1103,18 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
           event.preventDefault();
           this.selectAll();
           return;
+        case 'c':
+          event.preventDefault();
+          this.copySelection();
+          return;
+        case 'x':
+          event.preventDefault();
+          this.cutSelection();
+          return;
+        case 'v':
+          event.preventDefault();
+          void this.pasteClipboard();
+          return;
       }
     }
 
@@ -1433,6 +1457,165 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     this.showGridlines = !this.showGridlines;
   }
 
+  openContextMenu(event: MouseEvent, row: number, column: number): void {
+    if ((event.target as HTMLElement).closest('.cell-editor')) {
+      return;
+    }
+
+    event.preventDefault();
+    this.commitEdit('none', false);
+
+    if (this.formulaSource === 'formula') {
+      this.commitFormula();
+    }
+
+    this.hideSuggestions();
+    this.closeMenus();
+
+    if (!this.isSelected(row, column)) {
+      this.selectCell(row, column);
+    }
+
+    this.contextMenuOpen = true;
+    this.contextMenuX = event.clientX;
+    this.contextMenuY = event.clientY;
+
+    setTimeout(() => {
+      const menu = this.contextMenuRef?.nativeElement;
+      if (!menu) {
+        return;
+      }
+
+      const rect = menu.getBoundingClientRect();
+      this.contextMenuX = Math.max(8, Math.min(this.contextMenuX, window.innerWidth - rect.width - 8));
+      this.contextMenuY = Math.max(8, Math.min(this.contextMenuY, window.innerHeight - rect.height - 8));
+      this.focusContextMenuItem();
+    });
+  }
+
+  closeContextMenu(): void {
+    this.contextMenuOpen = false;
+  }
+
+  onContextMenuKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      this.closeContextMenu();
+      this.focusGrid();
+      return;
+    }
+
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      this.moveContextMenuFocus(event.key === 'ArrowDown' ? 1 : -1);
+    }
+  }
+
+  cutSelection(): void {
+    this.clipboard = {
+      values: this.selectionValues(),
+      cut: true,
+      origin: { row: this.selectionTop, column: this.selectionLeft }
+    };
+    this.writeSystemClipboard();
+    this.finishContextAction();
+  }
+
+  copySelection(): void {
+    this.clipboard = {
+      values: this.selectionValues(),
+      cut: false,
+      origin: { row: this.selectionTop, column: this.selectionLeft }
+    };
+    this.writeSystemClipboard();
+    this.finishContextAction();
+  }
+
+  async pasteClipboard(): Promise<void> {
+    const values = this.clipboard?.values ?? await this.readSystemClipboard();
+    this.closeContextMenu();
+
+    if (!values?.length) {
+      this.focusGrid();
+      return;
+    }
+
+    this.pasteValues(values);
+
+    if (this.clipboard?.cut) {
+      this.clearRange(this.clipboard.origin, values);
+      this.clipboard = null;
+    }
+
+    this.focusGrid();
+  }
+
+  insertRowAbove(): void {
+    const index = this.activeCell.row;
+    insertRow(this.cellData, index, () =>
+      Array.from({ length: this.columns }, () => this.createCell())
+    );
+    this.rows += 1;
+    this.rebuildIndices();
+    this.activeCell = { row: index, column: this.activeCell.column };
+    this.selectionAnchor = { ...this.activeCell };
+    this.formulaValue = this.activeCellData.value;
+    this.pushHistory();
+    this.finishContextAction();
+  }
+
+  insertColumnLeft(): void {
+    const index = this.activeCell.column;
+    insertColumn(this.cellData, index, () => this.createCell());
+    this.columns += 1;
+    this.columnWidths.splice(index, 0, DEFAULT_COLUMN_WIDTH);
+    this.rebuildIndices();
+    this.activeCell = { row: this.activeCell.row, column: index };
+    this.selectionAnchor = { ...this.activeCell };
+    this.formulaValue = this.activeCellData.value;
+    this.pushHistory();
+    this.finishContextAction();
+  }
+
+  deleteRow(): void {
+    if (this.rows <= 1) {
+      return;
+    }
+
+    const index = this.activeCell.row;
+    removeRow(this.cellData, index);
+    this.rows -= 1;
+    this.rebuildIndices();
+    this.activeCell = {
+      row: Math.min(index, this.rows - 1),
+      column: Math.min(this.activeCell.column, this.columns - 1)
+    };
+    this.selectionAnchor = { ...this.activeCell };
+    this.formulaValue = this.activeCellData.value;
+    this.pushHistory();
+    this.finishContextAction();
+  }
+
+  deleteColumn(): void {
+    if (this.columns <= 1) {
+      return;
+    }
+
+    const index = this.activeCell.column;
+    removeColumn(this.cellData, index);
+    this.columns -= 1;
+    this.columnWidths.splice(index, 1);
+    this.rebuildIndices();
+    this.activeCell = {
+      row: Math.min(this.activeCell.row, this.rows - 1),
+      column: Math.min(index, this.columns - 1)
+    };
+    this.selectionAnchor = { ...this.activeCell };
+    this.formulaValue = this.activeCellData.value;
+    this.pushHistory();
+    this.finishContextAction();
+  }
+
   toggleCompactRows(): void {
     this.compactRows = !this.compactRows;
   }
@@ -1616,7 +1799,18 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
       return;
     }
 
+    if (this.contextMenuOpen) {
+      this.closeContextMenu();
+      this.focusGrid();
+      return;
+    }
+
     this.closeExportMenu();
+  }
+
+  @HostListener('window:resize')
+  closeContextMenuOnResize(): void {
+    this.closeContextMenu();
   }
 
   @HostListener('document:keydown', ['$event'])
@@ -1913,6 +2107,150 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
 
   private focusGrid(): void {
     setTimeout(() => this.gridRef?.nativeElement.focus({ preventScroll: true }));
+  }
+
+  private finishContextAction(): void {
+    this.closeContextMenu();
+    this.focusGrid();
+  }
+
+  private focusContextMenuItem(): void {
+    this.contextMenuItems()[0]?.focus();
+  }
+
+  private moveContextMenuFocus(delta: number): void {
+    const items = this.contextMenuItems();
+    if (!items.length) {
+      return;
+    }
+
+    const current = items.indexOf(document.activeElement as HTMLButtonElement);
+    const next = (current + delta + items.length) % items.length;
+    items[next]?.focus();
+  }
+
+  private contextMenuItems(): HTMLButtonElement[] {
+    const menu = this.contextMenuRef?.nativeElement;
+    if (!menu) {
+      return [];
+    }
+
+    return Array.from(menu.querySelectorAll<HTMLButtonElement>('button:not([disabled])'));
+  }
+
+  private selectionValues(): string[][] {
+    const values: string[][] = [];
+
+    for (let row = this.selectionTop; row <= this.selectionBottom; row += 1) {
+      const line: string[] = [];
+
+      for (let column = this.selectionLeft; column <= this.selectionRight; column += 1) {
+        line.push(this.cellAt(row, column).value);
+      }
+
+      values.push(line);
+    }
+
+    return values;
+  }
+
+  private selectionText(): string {
+    const lines: string[] = [];
+
+    for (let row = this.selectionTop; row <= this.selectionBottom; row += 1) {
+      const line: string[] = [];
+
+      for (let column = this.selectionLeft; column <= this.selectionRight; column += 1) {
+        line.push(this.displayAt(row, column));
+      }
+
+      lines.push(line.join('\t'));
+    }
+
+    return lines.join('\n');
+  }
+
+  private writeSystemClipboard(): void {
+    const text = this.selectionText();
+
+    try {
+      void navigator.clipboard?.writeText(text)?.catch(() => undefined);
+    } catch {
+      return;
+    }
+  }
+
+  private async readSystemClipboard(): Promise<string[][] | null> {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text) {
+        return null;
+      }
+
+      return text
+        .replace(/\r\n/g, '\n')
+        .split('\n')
+        .map(line => line.split('\t'));
+    } catch {
+      return null;
+    }
+  }
+
+  private pasteValues(values: string[][]): void {
+    const targetRow = this.activeCell.row;
+    const targetColumn = this.activeCell.column;
+    const width = values.reduce((max, row) => Math.max(max, row.length), 0);
+    this.ensureCapacity(targetRow + values.length, targetColumn + width);
+    let changed = false;
+
+    for (let row = 0; row < values.length; row += 1) {
+      for (let column = 0; column < values[row].length; column += 1) {
+        const cell = this.cellAt(targetRow + row, targetColumn + column);
+        if (cell.value !== values[row][column]) {
+          cell.value = values[row][column];
+          changed = true;
+        }
+      }
+    }
+
+    if (!changed) {
+      return;
+    }
+
+    this.formulaValue = this.activeCellData.value;
+    this.pushHistory();
+  }
+
+  private clearRange(origin: Selection, values: string[][]): void {
+    for (let row = 0; row < values.length; row += 1) {
+      for (let column = 0; column < values[row].length; column += 1) {
+        const cell = this.cellData[origin.row + row]?.[origin.column + column];
+        if (cell) {
+          cell.value = '';
+        }
+      }
+    }
+  }
+
+  private ensureCapacity(rows: number, columns: number): void {
+    let changed = false;
+
+    while (this.rows < rows) {
+      this.rows += 1;
+      this.cellData.push(Array.from({ length: this.columns }, () => this.createCell()));
+      changed = true;
+    }
+
+    while (this.columns < columns) {
+      this.columns += 1;
+      this.columnWidths.push(DEFAULT_COLUMN_WIDTH);
+      this.cellData.forEach(row => row.push(this.createCell()));
+      changed = true;
+    }
+
+    if (changed) {
+      this.rebuildIndices();
+    }
   }
 
   private beginStyleDialog(): HTMLElement | null {
