@@ -152,6 +152,10 @@ summary:focus-visible {
     display: none !important;
   }
 
+  .export-backdrop {
+    display: none !important;
+  }
+
   .grid td.cell {
     background: #ffffff !important;
     color: #000000 !important;

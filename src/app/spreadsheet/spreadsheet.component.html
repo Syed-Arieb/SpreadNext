@@ -3,9 +3,9 @@
     <details class="menu" #menu>
       <summary>File</summary>
       <div class="menu-panel">
-        <button type="button" (click)="requestSave(); closeMenus()">
+        <button type="button" (click)="openExportMenu()">
           <span class="menu-check"></span>
-          Save
+          Save as...
           <kbd>Ctrl S</kbd>
         </button>
         <hr />
@@ -161,7 +161,7 @@
 
     <span class="toolbar-spacer"></span>
 
-    <button type="button" class="tool tool-label" title="Download the sheet as CSV" (click)="exportCsv()">
+    <button type="button" class="tool tool-label" title="Choose a save format" (click)="openExportMenu()">
       <svg [cIcon]="icons.cilCloudDownload" aria-hidden="true"></svg>
       Export
     </button>
@@ -321,6 +321,41 @@
           <span class="formula-suggest-description">{{ formula.description }}</span>
         </button>
       }
+    </div>
+  }
+
+  @if (exportMenuOpen) {
+    <div class="export-backdrop" (pointerdown)="closeExportMenu()">
+      <section
+        class="export-menu"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="export-title"
+        (pointerdown)="$event.stopPropagation()"
+      >
+        <header class="export-header">
+          <h2 id="export-title">Save as</h2>
+          <button
+            type="button"
+            class="export-close"
+            aria-label="Close save menu"
+            (click)="closeExportMenu()"
+          >&times;</button>
+        </header>
+        <p class="export-copy">
+          This sheet is already saved in your browser. Choose a format to download or print.
+        </p>
+        <div class="export-options">
+          <button #exportFirst type="button" class="export-option" (click)="saveAsCsv()">
+            <span class="export-format">CSV</span>
+            <span class="export-description">Download this sheet as a comma separated file.</span>
+          </button>
+          <button type="button" class="export-option" (click)="saveAsPdf()">
+            <span class="export-format">PDF</span>
+            <span class="export-description">Open the print dialog and save as PDF.</span>
+          </button>
+        </div>
+      </section>
     </div>
   }
 </div>

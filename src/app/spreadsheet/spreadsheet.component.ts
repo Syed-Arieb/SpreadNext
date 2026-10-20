@@ -109,7 +109,6 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   @Output() cellChange = new EventEmitter<{ row: number; column: number; value: string }>();
   @Output() sheetChange = new EventEmitter<void>();
   @Output() saved = new EventEmitter<void>();
-  @Output() saveRequested = new EventEmitter<void>();
 
   readonly icons = {
     cilActionRedo,
@@ -149,6 +148,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   compactRows = false;
   resizingColumn: number | null = null;
   selecting = false;
+  exportMenuOpen = false;
 
   private readonly engine = inject(FormulaEngine);
   private formulaSource: 'cell' | 'formula' | null = null;
@@ -159,6 +159,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   private referenceInsertion: ReferenceInsertion | null = null;
   private cachedReferenceFormula = '';
   private cachedFormulaReferences: FormulaReference[] = [];
+  private exportReturnFocus: HTMLElement | null = null;
 
   private resizeStartX = 0;
   private resizeStartWidth = 0;
@@ -169,6 +170,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   @ViewChild('grid') private gridRef?: ElementRef<HTMLDivElement>;
   @ViewChild('cellEditor') private editorRef?: ElementRef<HTMLInputElement>;
   @ViewChild('formulaInput') private formulaInputRef?: ElementRef<HTMLInputElement>;
+  @ViewChild('exportFirst') private exportFirstRef?: ElementRef<HTMLButtonElement>;
   @ViewChildren('menu') private menuRefs?: QueryList<ElementRef<HTMLDetailsElement>>;
 
   private history: SheetSnapshot[] = [];
@@ -1253,18 +1255,50 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     window.print();
   }
 
-  saveNow(): void {
-    this.commitEdit('none', true);
+  openExportMenu(): void {
+    const active = document.activeElement;
+    this.exportReturnFocus = active instanceof HTMLElement ? active : null;
+    this.commitEdit('none', false);
 
     if (this.formulaSource === 'formula') {
       this.commitFormula();
     }
 
-    this.flushSave();
+    this.closeMenus();
+    this.hideSuggestions();
+    this.exportMenuOpen = true;
+    setTimeout(() => this.exportFirstRef?.nativeElement.focus());
   }
 
-  requestSave(): void {
-    this.saveRequested.emit();
+  closeExportMenu(): void {
+    if (!this.exportMenuOpen) {
+      return;
+    }
+
+    this.exportMenuOpen = false;
+    const target = this.exportReturnFocus;
+    this.exportReturnFocus = null;
+
+    if (target?.isConnected && target.getClientRects().length > 0) {
+      target.focus();
+    } else {
+      this.focusGrid();
+    }
+  }
+
+  @HostListener('document:keydown.escape')
+  closeExportMenuOnEscape(): void {
+    this.closeExportMenu();
+  }
+
+  saveAsCsv(): void {
+    this.closeExportMenu();
+    this.exportCsv();
+  }
+
+  saveAsPdf(): void {
+    this.closeExportMenu();
+    setTimeout(() => this.printSheet());
   }
 
   closeMenus(): void {
@@ -1439,15 +1473,6 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
       this.saveTimer = undefined;
       this.persist();
     }, 400);
-  }
-
-  private flushSave(): void {
-    if (this.saveTimer) {
-      clearTimeout(this.saveTimer);
-      this.saveTimer = undefined;
-    }
-
-    this.persist();
   }
 
   private persist(): void {

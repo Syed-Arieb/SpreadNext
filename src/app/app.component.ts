@@ -75,17 +75,7 @@ export class AppComponent {
     }
 
     event.preventDefault();
-    this.saveNow();
-  }
-
-  saveNow(): void {
-    if (this.titleSaveTimer) {
-      clearTimeout(this.titleSaveTimer);
-      this.titleSaveTimer = undefined;
-      this.persistTitle();
-    }
-
-    this.sheetRef?.saveNow();
+    this.sheetRef?.openExportMenu();
   }
 
   toggleTheme(): void {
