@@ -231,6 +231,17 @@
                 (pointerenter)="extendSelection(row, column)"
                 (dblclick)="startEdit()"
               >
+                @for (outline of referenceOutlines(row, column); track $index) {
+                  <span
+                    class="reference-outline"
+                    aria-hidden="true"
+                    [class.ref-top]="outline.top"
+                    [class.ref-right]="outline.right"
+                    [class.ref-bottom]="outline.bottom"
+                    [class.ref-left]="outline.left"
+                    [style.border-color]="outline.color"
+                  ></span>
+                }
                 @if (isEditing(row, column)) {
                   <input
                     #cellEditor

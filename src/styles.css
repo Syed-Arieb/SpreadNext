@@ -143,6 +143,15 @@ summary:focus-visible {
     box-shadow: none !important;
   }
 
+  .grid td.cell.reference {
+    background: transparent !important;
+    outline: none !important;
+  }
+
+  .reference-outline {
+    display: none !important;
+  }
+
   .grid td.cell {
     background: #ffffff !important;
     color: #000000 !important;

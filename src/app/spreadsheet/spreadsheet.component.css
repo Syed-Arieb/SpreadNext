@@ -364,7 +364,32 @@
 
 .grid td.cell.reference {
   background: var(--accent-soft);
-  box-shadow: inset 0 0 0 2px var(--accent-border);
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+}
+
+.reference-outline {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border: 0 dashed;
+  pointer-events: none;
+}
+
+.reference-outline.ref-top {
+  border-top-width: 2px;
+}
+
+.reference-outline.ref-right {
+  border-right-width: 2px;
+}
+
+.reference-outline.ref-bottom {
+  border-bottom-width: 2px;
+}
+
+.reference-outline.ref-left {
+  border-left-width: 2px;
 }
 
 .cell-value {

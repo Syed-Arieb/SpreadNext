@@ -29,6 +29,7 @@ import {
 import { IconDirective } from '@coreui/icons-angular';
 import { FormulaEngine } from './formula-engine';
 import { FORMULA_FUNCTIONS, FormulaFunction } from './formula-functions';
+import { FormulaReference, parseFormulaReferences } from './formula-references';
 import { normalizeFormula } from './formula-text';
 
 export type CellAlign = 'left' | 'center' | 'right';
@@ -59,6 +60,14 @@ interface ReferenceInsertion {
   focus: Selection;
 }
 
+interface ReferenceOutline {
+  color: string;
+  top: boolean;
+  right: boolean;
+  bottom: boolean;
+  left: boolean;
+}
+
 interface SheetSnapshot {
   rows: number;
   columns: number;
@@ -76,6 +85,7 @@ const MAX_COLUMN_WIDTH = 480;
 const ROW_HEADER_WIDTH = 48;
 const MAX_HISTORY = 100;
 const STORAGE_KEY = 'spreadnext-sheet';
+const REFERENCE_COLORS = ['#3b82f6', '#ef4444', '#10b981', '#a855f7', '#f59e0b', '#06b6d4'];
 
 const DEFAULT_STYLE: CellStyle = {
   bold: false,
@@ -146,6 +156,8 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   private referenceFocus: Selection | null = null;
   private referenceCaret = 0;
   private referenceInsertion: ReferenceInsertion | null = null;
+  private cachedReferenceFormula = '';
+  private cachedFormulaReferences: FormulaReference[] = [];
 
   private resizeStartX = 0;
   private resizeStartWidth = 0;
@@ -375,6 +387,55 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
       row <= Math.max(this.referenceAnchor.row, this.referenceFocus.row) &&
       column >= Math.min(this.referenceAnchor.column, this.referenceFocus.column) &&
       column <= Math.max(this.referenceAnchor.column, this.referenceFocus.column);
+  }
+
+  referenceOutlines(row: number, column: number): ReferenceOutline[] {
+    const references = this.formulaReferences();
+    const outlines: ReferenceOutline[] = [];
+
+    for (const reference of references) {
+      if (
+        row < reference.top ||
+        row > reference.bottom ||
+        column < reference.left ||
+        column > reference.right
+      ) {
+        continue;
+      }
+
+      outlines.push({
+        color: REFERENCE_COLORS[reference.colorIndex % REFERENCE_COLORS.length],
+        top: row === reference.top,
+        right: column === reference.right,
+        bottom: row === reference.bottom,
+        left: column === reference.left
+      });
+    }
+
+    return outlines;
+  }
+
+  private formulaReferences(): FormulaReference[] {
+    const formula = this.referenceFormula();
+
+    if (formula !== this.cachedReferenceFormula) {
+      this.cachedReferenceFormula = formula;
+      this.cachedFormulaReferences = parseFormulaReferences(formula);
+    }
+
+    return this.cachedFormulaReferences;
+  }
+
+  private referenceFormula(): string {
+    if (this.formulaSource === 'formula') {
+      return this.formulaValue;
+    }
+
+    if (this.formulaSource === 'cell') {
+      return this.draftValue;
+    }
+
+    return this.activeCellData.value;
   }
 
   @HostListener('document:pointerup')
