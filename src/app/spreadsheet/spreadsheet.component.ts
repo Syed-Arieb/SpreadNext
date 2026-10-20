@@ -83,9 +83,12 @@ interface SheetSnapshot {
 
 interface ClipboardCells {
   values: string[][];
+  display: string[][];
   cut: boolean;
   origin: Selection;
 }
+
+type ContextSubmenu = 'paste' | 'clear' | 'format' | 'insert' | 'delete' | 'view';
 
 type MoveDirection = 'up' | 'down' | 'left' | 'right' | 'none';
 
@@ -200,6 +203,9 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   contextMenuOpen = false;
   contextMenuX = 0;
   contextMenuY = 0;
+  openSubmenu: ContextSubmenu | null = null;
+  submenuX = 0;
+  submenuY = 0;
   fillPickerValue = '#fde047';
   borderLineStyle: BorderLineStyle = 'thin';
   borderColor = DEFAULT_BORDER_COLOR;
@@ -218,6 +224,9 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   private fillReturnFocus: HTMLElement | null = null;
   private borderReturnFocus: HTMLElement | null = null;
   private clipboard: ClipboardCells | null = null;
+  private submenuCloseTimer?: ReturnType<typeof setTimeout>;
+  private submenuElement: HTMLElement | null = null;
+  private submenuTrigger: HTMLElement | null = null;
 
   private resizeStartX = 0;
   private resizeStartWidth = 0;
@@ -237,6 +246,13 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   @ViewChild('borderFirst') private borderFirstRef?: ElementRef<HTMLButtonElement>;
   @ViewChild('borderDialog') private borderDialogRef?: ElementRef<HTMLElement>;
   @ViewChild('contextMenu') private contextMenuRef?: ElementRef<HTMLElement>;
+  @ViewChild('contextSubmenu')
+  set contextSubmenuRef(ref: ElementRef<HTMLElement> | undefined) {
+    this.submenuElement = ref?.nativeElement ?? null;
+    if (ref) {
+      this.positionSubmenu();
+    }
+  }
   @ViewChildren('menu') private menuRefs?: QueryList<ElementRef<HTMLDetailsElement>>;
 
   private history: SheetSnapshot[] = [];
@@ -299,6 +315,10 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     });
 
     return found;
+  }
+
+  get clipboardHasValues(): boolean {
+    return this.clipboard !== null && this.clipboard.display.length > 0;
   }
 
   get activeAddress(): string {
@@ -1495,11 +1515,18 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
 
   closeContextMenu(): void {
     this.contextMenuOpen = false;
+    this.openSubmenu = null;
   }
 
   onContextMenuKeydown(event: KeyboardEvent): void {
     if (event.key === 'Escape') {
       event.preventDefault();
+
+      if (this.openSubmenu) {
+        this.openSubmenu = null;
+        return;
+      }
+
       this.closeContextMenu();
       this.focusGrid();
       return;
@@ -1511,9 +1538,44 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     }
   }
 
+  openSubmenuPanel(id: ContextSubmenu, event: Event): void {
+    this.cancelSubmenuClose();
+    const trigger = event.currentTarget as HTMLElement | null;
+
+    if (!trigger) {
+      return;
+    }
+
+    this.submenuTrigger = trigger;
+
+    if (this.openSubmenu === id) {
+      this.positionSubmenu();
+      return;
+    }
+
+    this.openSubmenu = id;
+    setTimeout(() => this.positionSubmenu());
+    requestAnimationFrame(() => this.positionSubmenu());
+  }
+
+  scheduleSubmenuClose(): void {
+    this.cancelSubmenuClose();
+    this.submenuCloseTimer = setTimeout(() => {
+      this.openSubmenu = null;
+    }, 180);
+  }
+
+  cancelSubmenuClose(): void {
+    if (this.submenuCloseTimer) {
+      clearTimeout(this.submenuCloseTimer);
+      this.submenuCloseTimer = undefined;
+    }
+  }
+
   cutSelection(): void {
     this.clipboard = {
       values: this.selectionValues(),
+      display: this.selectionDisplayValues(),
       cut: true,
       origin: { row: this.selectionTop, column: this.selectionLeft }
     };
@@ -1524,6 +1586,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   copySelection(): void {
     this.clipboard = {
       values: this.selectionValues(),
+      display: this.selectionDisplayValues(),
       cut: false,
       origin: { row: this.selectionTop, column: this.selectionLeft }
     };
@@ -1533,6 +1596,25 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
 
   async pasteClipboard(): Promise<void> {
     const values = this.clipboard?.values ?? await this.readSystemClipboard();
+    this.closeContextMenu();
+
+    if (!values?.length) {
+      this.focusGrid();
+      return;
+    }
+
+    this.pasteValues(values);
+
+    if (this.clipboard?.cut) {
+      this.clearRange(this.clipboard.origin, values);
+      this.clipboard = null;
+    }
+
+    this.focusGrid();
+  }
+
+  pasteValuesOnly(): void {
+    const values = this.clipboard?.display;
     this.closeContextMenu();
 
     if (!values?.length) {
@@ -2119,7 +2201,9 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   }
 
   private moveContextMenuFocus(delta: number): void {
-    const items = this.contextMenuItems();
+    const items = this.openSubmenu
+      ? this.contextSubmenuItems()
+      : this.contextMenuItems();
     if (!items.length) {
       return;
     }
@@ -2130,12 +2214,19 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   }
 
   private contextMenuItems(): HTMLButtonElement[] {
-    const menu = this.contextMenuRef?.nativeElement;
-    if (!menu) {
+    return this.menuItems(this.contextMenuRef?.nativeElement);
+  }
+
+  private contextSubmenuItems(): HTMLButtonElement[] {
+    return this.menuItems(this.contextSubmenuRef?.nativeElement);
+  }
+
+  private menuItems(element: HTMLElement | undefined): HTMLButtonElement[] {
+    if (!element) {
       return [];
     }
 
-    return Array.from(menu.querySelectorAll<HTMLButtonElement>('button:not([disabled])'));
+    return Array.from(element.querySelectorAll<HTMLButtonElement>('button:not([disabled])'));
   }
 
   private selectionValues(): string[][] {
@@ -2152,6 +2243,49 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     }
 
     return values;
+  }
+
+  private selectionDisplayValues(): string[][] {
+    const values: string[][] = [];
+
+    for (let row = this.selectionTop; row <= this.selectionBottom; row += 1) {
+      const line: string[] = [];
+
+      for (let column = this.selectionLeft; column <= this.selectionRight; column += 1) {
+        line.push(this.displayAt(row, column));
+      }
+
+      values.push(line);
+    }
+
+    return values;
+  }
+
+  private positionSubmenu(): void {
+    const submenu = this.submenuElement;
+    const trigger = this.submenuTrigger;
+
+    if (!submenu || !trigger) {
+      return;
+    }
+
+    const rect = trigger.getBoundingClientRect();
+    const width = submenu.offsetWidth;
+    const height = submenu.offsetHeight;
+    let left = rect.right - 4;
+
+    if (left + width > window.innerWidth - 8) {
+      left = Math.max(8, rect.left - width + 4);
+    }
+
+    let top = rect.top - 5;
+
+    if (top + height > window.innerHeight - 8) {
+      top = Math.max(8, window.innerHeight - height - 8);
+    }
+
+    this.submenuX = left;
+    this.submenuY = top;
   }
 
   private selectionText(): string {

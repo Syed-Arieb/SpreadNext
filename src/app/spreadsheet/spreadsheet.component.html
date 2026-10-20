@@ -760,181 +760,261 @@
       aria-label="Cell actions"
       [style.left.px]="contextMenuX"
       [style.top.px]="contextMenuY"
-      (click)="closeContextMenu()"
       (keydown)="onContextMenuKeydown($event)"
     >
-      <button type="button" role="menuitem" (click)="cutSelection()">
-        <span class="menu-icon" aria-hidden="true"><ng-icon name="lucideScissors"></ng-icon></span>
-        <span class="menu-check" aria-hidden="true"></span>
-        Cut
-        <kbd>Ctrl X</kbd>
+      <button type="button" class="context-item" role="menuitem" (click)="cutSelection()">
+        <span class="context-label">Cut</span>
+        <span class="context-item-icon" aria-hidden="true"><ng-icon name="lucideScissors"></ng-icon></span>
       </button>
-      <button type="button" role="menuitem" (click)="copySelection()">
-        <span class="menu-icon" aria-hidden="true"><ng-icon name="lucideCopy"></ng-icon></span>
-        <span class="menu-check" aria-hidden="true"></span>
-        Copy
-        <kbd>Ctrl C</kbd>
-      </button>
-      <button type="button" role="menuitem" (click)="pasteClipboard()">
-        <span class="menu-icon" aria-hidden="true"><ng-icon name="lucideClipboardPaste"></ng-icon></span>
-        <span class="menu-check" aria-hidden="true"></span>
-        Paste
-        <kbd>Ctrl V</kbd>
-      </button>
-
-      <hr />
-
-      <button type="button" role="menuitem" (click)="clearActiveCell()">
-        <span class="menu-icon" aria-hidden="true"><ng-icon name="lucideTrash2"></ng-icon></span>
-        <span class="menu-check" aria-hidden="true"></span>
-        Clear contents
-        <kbd>Del</kbd>
+      <button type="button" class="context-item" role="menuitem" (click)="copySelection()">
+        <span class="context-label">Copy</span>
+        <span class="context-item-icon" aria-hidden="true"><ng-icon name="lucideCopy"></ng-icon></span>
       </button>
       <button
         type="button"
+        class="context-item"
         role="menuitem"
-        (click)="clearFormatting()"
-        [disabled]="!selectionHasFormatting"
+        aria-haspopup="menu"
+        [attr.aria-expanded]="openSubmenu === 'paste'"
+        (mouseenter)="openSubmenuPanel('paste', $event)"
+        (focus)="openSubmenuPanel('paste', $event)"
+        (click)="openSubmenuPanel('paste', $event)"
       >
-        <span class="menu-icon" aria-hidden="true"><ng-icon name="lucideRemoveFormatting"></ng-icon></span>
-        <span class="menu-check" aria-hidden="true"></span>
-        Clear formatting
+        <span class="context-label">Paste</span>
+        <span class="context-item-chevron" aria-hidden="true"><ng-icon name="lucideChevronRight"></ng-icon></span>
       </button>
-
-      <hr />
-
-      <div class="context-row" role="group" aria-label="Text style">
-        <button
-          type="button"
-          class="context-toggle"
-          aria-label="Bold"
-          title="Bold"
-          [class.is-active]="activeCellData.style.bold"
-          (click)="toggleStyle('bold')"
-        >
-          <ng-icon name="lucideBold" aria-hidden="true"></ng-icon>
-        </button>
-        <button
-          type="button"
-          class="context-toggle"
-          aria-label="Italic"
-          title="Italic"
-          [class.is-active]="activeCellData.style.italic"
-          (click)="toggleStyle('italic')"
-        >
-          <ng-icon name="lucideItalic" aria-hidden="true"></ng-icon>
-        </button>
-        <button
-          type="button"
-          class="context-toggle"
-          aria-label="Underline"
-          title="Underline"
-          [class.is-active]="activeCellData.style.underline"
-          (click)="toggleStyle('underline')"
-        >
-          <ng-icon name="lucideUnderline" aria-hidden="true"></ng-icon>
-        </button>
-        <button
-          type="button"
-          class="context-toggle"
-          aria-label="Strikethrough"
-          title="Strikethrough"
-          [class.is-active]="activeCellData.style.strike"
-          (click)="toggleStyle('strike')"
-        >
-          <ng-icon name="lucideStrikethrough" aria-hidden="true"></ng-icon>
-        </button>
-      </div>
-
-      <div class="context-row" role="group" aria-label="Alignment">
-        <button
-          type="button"
-          class="context-toggle"
-          aria-label="Align left"
-          title="Align left"
-          [class.is-active]="activeCellData.style.align === 'left'"
-          (click)="setAlignment('left')"
-        >
-          <ng-icon name="lucideAlignLeft" aria-hidden="true"></ng-icon>
-        </button>
-        <button
-          type="button"
-          class="context-toggle"
-          aria-label="Align center"
-          title="Align center"
-          [class.is-active]="activeCellData.style.align === 'center'"
-          (click)="setAlignment('center')"
-        >
-          <ng-icon name="lucideAlignCenter" aria-hidden="true"></ng-icon>
-        </button>
-        <button
-          type="button"
-          class="context-toggle"
-          aria-label="Align right"
-          title="Align right"
-          [class.is-active]="activeCellData.style.align === 'right'"
-          (click)="setAlignment('right')"
-        >
-          <ng-icon name="lucideAlignRight" aria-hidden="true"></ng-icon>
-        </button>
-      </div>
-
-      <hr />
-
-      <button type="button" role="menuitem" (click)="openFillDialog()">
-        <span class="menu-icon" aria-hidden="true"><ng-icon name="lucidePaintBucket"></ng-icon></span>
-        <span class="menu-check" aria-hidden="true"></span>
-        Fill color...
+      <button
+        type="button"
+        class="context-item"
+        role="menuitem"
+        aria-haspopup="menu"
+        [attr.aria-expanded]="openSubmenu === 'clear'"
+        (mouseenter)="openSubmenuPanel('clear', $event)"
+        (focus)="openSubmenuPanel('clear', $event)"
+        (click)="openSubmenuPanel('clear', $event)"
+      >
+        <span class="context-label">Clear</span>
+        <span class="context-item-chevron" aria-hidden="true"><ng-icon name="lucideChevronRight"></ng-icon></span>
       </button>
-      <button type="button" role="menuitem" (click)="openBorderDialog()">
-        <span class="menu-icon" aria-hidden="true"><app-border-icon preset="all"></app-border-icon></span>
-        <span class="menu-check" aria-hidden="true"></span>
-        Cell borders...
+      <button
+        type="button"
+        class="context-item"
+        role="menuitem"
+        aria-haspopup="menu"
+        [attr.aria-expanded]="openSubmenu === 'format'"
+        (mouseenter)="openSubmenuPanel('format', $event)"
+        (focus)="openSubmenuPanel('format', $event)"
+        (click)="openSubmenuPanel('format', $event)"
+      >
+        <span class="context-label">Format</span>
+        <span class="context-item-chevron" aria-hidden="true"><ng-icon name="lucideChevronRight"></ng-icon></span>
       </button>
-
-      <hr />
-
-      <button type="button" role="menuitem" (click)="insertRowAbove()">
-        <span class="menu-icon" aria-hidden="true"><ng-icon name="lucideArrowUpToLine"></ng-icon></span>
-        <span class="menu-check" aria-hidden="true"></span>
-        Insert row above
+      <button
+        type="button"
+        class="context-item"
+        role="menuitem"
+        aria-haspopup="menu"
+        [attr.aria-expanded]="openSubmenu === 'insert'"
+        (mouseenter)="openSubmenuPanel('insert', $event)"
+        (focus)="openSubmenuPanel('insert', $event)"
+        (click)="openSubmenuPanel('insert', $event)"
+      >
+        <span class="context-label">Insert</span>
+        <span class="context-item-chevron" aria-hidden="true"><ng-icon name="lucideChevronRight"></ng-icon></span>
       </button>
-      <button type="button" role="menuitem" (click)="insertColumnLeft()">
-        <span class="menu-icon" aria-hidden="true"><ng-icon name="lucideArrowLeftToLine"></ng-icon></span>
-        <span class="menu-check" aria-hidden="true"></span>
-        Insert column left
+      <button
+        type="button"
+        class="context-item"
+        role="menuitem"
+        aria-haspopup="menu"
+        [attr.aria-expanded]="openSubmenu === 'delete'"
+        (mouseenter)="openSubmenuPanel('delete', $event)"
+        (focus)="openSubmenuPanel('delete', $event)"
+        (click)="openSubmenuPanel('delete', $event)"
+      >
+        <span class="context-label">Delete</span>
+        <span class="context-item-chevron" aria-hidden="true"><ng-icon name="lucideChevronRight"></ng-icon></span>
       </button>
-      <button type="button" role="menuitem" (click)="deleteRow()">
-        <span class="menu-icon" aria-hidden="true"><ng-icon name="lucideRows"></ng-icon></span>
-        <span class="menu-check" aria-hidden="true"></span>
-        Delete row
-      </button>
-      <button type="button" role="menuitem" (click)="deleteColumn()">
-        <span class="menu-icon" aria-hidden="true"><ng-icon name="lucideColumns"></ng-icon></span>
-        <span class="menu-check" aria-hidden="true"></span>
-        Delete column
-      </button>
-
-      <hr />
-
-      <button type="button" role="menuitemcheckbox" [attr.aria-checked]="showGridlines" (click)="toggleGridlines()">
-        <span class="menu-icon" aria-hidden="true"><ng-icon name="lucideGrid3x3"></ng-icon></span>
-        <span class="menu-check" aria-hidden="true">
-          @if (showGridlines) {
-            <ng-icon name="lucideCheck"></ng-icon>
-          }
-        </span>
-        Gridlines
-      </button>
-      <button type="button" role="menuitemcheckbox" [attr.aria-checked]="compactRows" (click)="toggleCompactRows()">
-        <span class="menu-icon" aria-hidden="true"><ng-icon name="lucideRows2"></ng-icon></span>
-        <span class="menu-check" aria-hidden="true">
-          @if (compactRows) {
-            <ng-icon name="lucideCheck"></ng-icon>
-          }
-        </span>
-        Compact rows
+      <button
+        type="button"
+        class="context-item"
+        role="menuitem"
+        aria-haspopup="menu"
+        [attr.aria-expanded]="openSubmenu === 'view'"
+        (mouseenter)="openSubmenuPanel('view', $event)"
+        (focus)="openSubmenuPanel('view', $event)"
+        (click)="openSubmenuPanel('view', $event)"
+      >
+        <span class="context-label">View</span>
+        <span class="context-item-chevron" aria-hidden="true"><ng-icon name="lucideChevronRight"></ng-icon></span>
       </button>
     </div>
+
+    @if (openSubmenu) {
+      <div
+        #contextSubmenu
+        class="context-submenu"
+        role="menu"
+        [attr.aria-label]="openSubmenu"
+        [style.left.px]="submenuX"
+        [style.top.px]="submenuY"
+        (mouseenter)="cancelSubmenuClose()"
+        (mouseleave)="scheduleSubmenuClose()"
+        (keydown)="onContextMenuKeydown($event)"
+      >
+        @switch (openSubmenu) {
+          @case ('paste') {
+            <button type="button" class="context-item" role="menuitem" (click)="pasteClipboard()">
+              <span class="context-label">Paste</span>
+              <span class="context-item-icon" aria-hidden="true"><ng-icon name="lucideClipboardPaste"></ng-icon></span>
+            </button>
+            <button
+              type="button"
+              class="context-item"
+              role="menuitem"
+              [disabled]="!clipboardHasValues"
+              (click)="pasteValuesOnly()"
+            >
+              <span class="context-label">Paste values only</span>
+              <span class="context-item-icon" aria-hidden="true"><ng-icon name="lucideText"></ng-icon></span>
+            </button>
+          }
+          @case ('clear') {
+            <button type="button" class="context-item" role="menuitem" (click)="clearActiveCell(); closeContextMenu()">
+              <span class="context-label">Clear contents</span>
+              <span class="context-item-icon" aria-hidden="true"><ng-icon name="lucideTrash2"></ng-icon></span>
+            </button>
+            <button
+              type="button"
+              class="context-item"
+              role="menuitem"
+              [disabled]="!selectionHasFormatting"
+              (click)="clearFormatting(); closeContextMenu()"
+            >
+              <span class="context-label">Clear formatting</span>
+              <span class="context-item-icon" aria-hidden="true"><ng-icon name="lucideRemoveFormatting"></ng-icon></span>
+            </button>
+          }
+          @case ('format') {
+            <button type="button" class="context-item" role="menuitem" (click)="toggleStyle('bold'); closeContextMenu()">
+              <span class="context-label">Bold</span>
+              <span class="context-item-state" aria-hidden="true">
+                @if (activeCellData.style.bold) {
+                  <ng-icon name="lucideCheck"></ng-icon>
+                }
+              </span>
+            </button>
+            <button type="button" class="context-item" role="menuitem" (click)="toggleStyle('italic'); closeContextMenu()">
+              <span class="context-label">Italic</span>
+              <span class="context-item-state" aria-hidden="true">
+                @if (activeCellData.style.italic) {
+                  <ng-icon name="lucideCheck"></ng-icon>
+                }
+              </span>
+            </button>
+            <button type="button" class="context-item" role="menuitem" (click)="toggleStyle('underline'); closeContextMenu()">
+              <span class="context-label">Underline</span>
+              <span class="context-item-state" aria-hidden="true">
+                @if (activeCellData.style.underline) {
+                  <ng-icon name="lucideCheck"></ng-icon>
+                }
+              </span>
+            </button>
+            <button type="button" class="context-item" role="menuitem" (click)="toggleStyle('strike'); closeContextMenu()">
+              <span class="context-label">Strikethrough</span>
+              <span class="context-item-state" aria-hidden="true">
+                @if (activeCellData.style.strike) {
+                  <ng-icon name="lucideCheck"></ng-icon>
+                }
+              </span>
+            </button>
+            <hr />
+            <button type="button" class="context-item" role="menuitem" (click)="setAlignment('left'); closeContextMenu()">
+              <span class="context-label">Align left</span>
+              <span class="context-item-state" aria-hidden="true">
+                @if (activeCellData.style.align === 'left') {
+                  <ng-icon name="lucideCheck"></ng-icon>
+                }
+              </span>
+            </button>
+            <button type="button" class="context-item" role="menuitem" (click)="setAlignment('center'); closeContextMenu()">
+              <span class="context-label">Align center</span>
+              <span class="context-item-state" aria-hidden="true">
+                @if (activeCellData.style.align === 'center') {
+                  <ng-icon name="lucideCheck"></ng-icon>
+                }
+              </span>
+            </button>
+            <button type="button" class="context-item" role="menuitem" (click)="setAlignment('right'); closeContextMenu()">
+              <span class="context-label">Align right</span>
+              <span class="context-item-state" aria-hidden="true">
+                @if (activeCellData.style.align === 'right') {
+                  <ng-icon name="lucideCheck"></ng-icon>
+                }
+              </span>
+            </button>
+            <hr />
+            <button type="button" class="context-item" role="menuitem" (click)="openFillDialog(); closeContextMenu()">
+              <span class="context-label">Fill color...</span>
+              <span class="context-item-icon" aria-hidden="true"><ng-icon name="lucidePaintBucket"></ng-icon></span>
+            </button>
+            <button type="button" class="context-item" role="menuitem" (click)="openBorderDialog(); closeContextMenu()">
+              <span class="context-label">Cell borders...</span>
+              <span class="context-item-icon" aria-hidden="true"><app-border-icon preset="all"></app-border-icon></span>
+            </button>
+          }
+          @case ('insert') {
+            <button type="button" class="context-item" role="menuitem" (click)="insertRowAbove()">
+              <span class="context-label">Insert row above</span>
+              <span class="context-item-icon" aria-hidden="true"><ng-icon name="lucideArrowUpToLine"></ng-icon></span>
+            </button>
+            <button type="button" class="context-item" role="menuitem" (click)="insertColumnLeft()">
+              <span class="context-label">Insert column left</span>
+              <span class="context-item-icon" aria-hidden="true"><ng-icon name="lucideArrowLeftToLine"></ng-icon></span>
+            </button>
+          }
+          @case ('delete') {
+            <button type="button" class="context-item" role="menuitem" (click)="deleteRow()">
+              <span class="context-label">Delete row</span>
+              <span class="context-item-icon" aria-hidden="true"><ng-icon name="lucideRows"></ng-icon></span>
+            </button>
+            <button type="button" class="context-item" role="menuitem" (click)="deleteColumn()">
+              <span class="context-label">Delete column</span>
+              <span class="context-item-icon" aria-hidden="true"><ng-icon name="lucideColumns"></ng-icon></span>
+            </button>
+          }
+          @case ('view') {
+            <button
+              type="button"
+              class="context-item"
+              role="menuitemcheckbox"
+              [attr.aria-checked]="showGridlines"
+              (click)="toggleGridlines(); closeContextMenu()"
+            >
+              <span class="context-label">Gridlines</span>
+              <span class="context-item-state" aria-hidden="true">
+                @if (showGridlines) {
+                  <ng-icon name="lucideCheck"></ng-icon>
+                }
+              </span>
+            </button>
+            <button
+              type="button"
+              class="context-item"
+              role="menuitemcheckbox"
+              [attr.aria-checked]="compactRows"
+              (click)="toggleCompactRows(); closeContextMenu()"
+            >
+              <span class="context-label">Compact rows</span>
+              <span class="context-item-state" aria-hidden="true">
+                @if (compactRows) {
+                  <ng-icon name="lucideCheck"></ng-icon>
+                }
+              </span>
+            </button>
+          }
+        }
+      </div>
+    }
   }
 </div>
