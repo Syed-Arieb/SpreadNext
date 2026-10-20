@@ -116,6 +116,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   @Output() cellChange = new EventEmitter<{ row: number; column: number; value: string }>();
   @Output() sheetChange = new EventEmitter<void>();
   @Output() saved = new EventEmitter<void>();
+  @Output() titleReset = new EventEmitter<void>();
 
   readonly icons = {
     cilActionRedo,
@@ -1277,6 +1278,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     this.formulaValue = '';
     this.resetDisplayValues();
     this.pushHistory();
+    this.titleReset.emit();
     this.focusGrid();
   }
 

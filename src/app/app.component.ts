@@ -63,6 +63,18 @@ export class AppComponent {
     });
   }
 
+  onTitleReset(): void {
+    if (this.titleSaveTimer) {
+      clearTimeout(this.titleSaveTimer);
+      this.titleSaveTimer = undefined;
+    }
+
+    this.documentTitle = 'Untitled spreadsheet';
+    this.unsavedChanges = true;
+    this.updateDocumentTitle();
+    this.persistTitle();
+  }
+
   onCellChange(): void {
     this.unsavedChanges = true;
   }
