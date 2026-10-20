@@ -4,6 +4,7 @@ import {
   ElementRef,
   EventEmitter,
   HostListener,
+  inject,
   Input,
   OnDestroy,
   OnInit,
@@ -26,6 +27,8 @@ import {
   cilUnderline
 } from '@coreui/icons';
 import { IconDirective } from '@coreui/icons-angular';
+import { FormulaEngine } from './formula-engine';
+import { FORMULA_FUNCTIONS, FormulaFunction } from './formula-functions';
 
 export type CellAlign = 'left' | 'center' | 'right';
 
@@ -103,6 +106,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   };
 
   cellData: Cell[][] = [];
+  displayValues: string[][] = [];
   columnWidths: number[] = [];
   rowIndices: number[] = [];
   columnIndices: number[] = [];
@@ -113,6 +117,11 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   draftValue = '';
   formulaValue = '';
 
+  suggestions: FormulaFunction[] = [];
+  suggestionIndex = 0;
+  suggestionTop = 0;
+  suggestionLeft = 0;
+
   canUndo = false;
   canRedo = false;
 
@@ -121,12 +130,22 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   resizingColumn: number | null = null;
   selecting = false;
 
+  private readonly engine = inject(FormulaEngine);
+  private formulaSource: 'cell' | 'formula' | null = null;
+  private referencing = false;
+  private referenceAnchor: Selection | null = null;
+  private referenceFocus: Selection | null = null;
+  private referenceCaret = 0;
+
   private resizeStartX = 0;
   private resizeStartWidth = 0;
   private resizeDirty = false;
+  private recalculateTimer?: ReturnType<typeof setTimeout>;
+  private recalculateVersion = 0;
 
   @ViewChild('grid') private gridRef?: ElementRef<HTMLDivElement>;
   @ViewChild('cellEditor') private editorRef?: ElementRef<HTMLInputElement>;
+  @ViewChild('formulaInput') private formulaInputRef?: ElementRef<HTMLInputElement>;
   @ViewChildren('menu') private menuRefs?: QueryList<ElementRef<HTMLDetailsElement>>;
 
   private history: SheetSnapshot[] = [];
@@ -144,14 +163,20 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     this.columnWidths = this.normalizeColumnWidths(this.columnWidths, this.columns);
     this.activeCell = { row: 0, column: 0 };
     this.formulaValue = this.cellAt(0, 0).value;
+    this.resetDisplayValues();
     this.history = [this.takeSnapshot()];
     this.historyIndex = 0;
     this.updateHistoryFlags();
+    this.scheduleRecalculate();
   }
 
   ngOnDestroy(): void {
     if (this.saveTimer) {
       clearTimeout(this.saveTimer);
+    }
+
+    if (this.recalculateTimer) {
+      clearTimeout(this.recalculateTimer);
     }
   }
 
@@ -191,9 +216,10 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     let sum = 0;
     let count = 0;
 
-    this.forEachSelectedCell(cell => {
-      const value = Number(cell.value.trim());
-      if (cell.value.trim() !== '' && Number.isFinite(value)) {
+    this.forEachSelectedCell((cell, row, column) => {
+      const display = this.displayAt(row, column).trim();
+      const value = Number(display);
+      if (display !== '' && Number.isFinite(value)) {
         sum += value;
         count += 1;
       }
@@ -228,6 +254,10 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
 
   columnWidth(column: number): number {
     return this.columnWidths[column] ?? DEFAULT_COLUMN_WIDTH;
+  }
+
+  displayAt(row: number, column: number): string {
+    return this.displayValues[row]?.[column] ?? this.cellAt(row, column).value;
   }
 
   cellAt(row: number, column: number): Cell {
@@ -285,11 +315,26 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
       return;
     }
 
+    if (this.formulaSource === 'formula' && !this.isFormulaEditing()) {
+      this.commitFormula();
+      this.formulaSource = null;
+    }
+
+    if (this.formulaSource !== null && this.isFormulaEditing()) {
+      this.startReferenceSelection(event, row, column);
+      return;
+    }
+
     this.selectCell(row, column, event.shiftKey);
     this.selecting = true;
   }
 
   extendSelection(row: number, column: number): void {
+    if (this.referencing) {
+      this.referenceFocus = this.clampSelection(row, column);
+      return;
+    }
+
     if (!this.selecting) {
       return;
     }
@@ -298,14 +343,33 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     this.formulaValue = this.activeCellData.value;
   }
 
+  isReferenceCell(row: number, column: number): boolean {
+    if (!this.referenceAnchor || !this.referenceFocus) {
+      return false;
+    }
+
+    return row >= Math.min(this.referenceAnchor.row, this.referenceFocus.row) &&
+      row <= Math.max(this.referenceAnchor.row, this.referenceFocus.row) &&
+      column >= Math.min(this.referenceAnchor.column, this.referenceFocus.column) &&
+      column <= Math.max(this.referenceAnchor.column, this.referenceFocus.column);
+  }
+
   @HostListener('document:pointerup')
   endSelection(): void {
+    if (this.referencing) {
+      this.finishReferenceSelection();
+      return;
+    }
+
     this.selecting = false;
   }
 
   @HostListener('document:pointercancel')
   cancelSelection(): void {
     this.selecting = false;
+    this.referencing = false;
+    this.referenceAnchor = null;
+    this.referenceFocus = null;
   }
 
   startEdit(initialValue?: string): void {
@@ -314,6 +378,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     }
 
     const cell = this.activeCellData;
+    this.formulaSource = 'cell';
     this.selectionAnchor = { ...this.activeCell };
     this.editingCell = { ...this.activeCell };
     this.draftValue = initialValue ?? cell.value;
@@ -331,16 +396,35 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
       } else {
         editor.setSelectionRange(editor.value.length, editor.value.length);
       }
+
+      this.updateSuggestions(editor.value, editor.selectionStart ?? editor.value.length);
     });
   }
 
   onEditorInput(event: Event): void {
-    this.draftValue = (event.target as HTMLInputElement).value;
+    const editor = event.target as HTMLInputElement;
+    this.formulaSource = 'cell';
+    this.draftValue = editor.value;
     this.formulaValue = this.draftValue;
+    this.updateSuggestions(editor.value, editor.selectionStart ?? editor.value.length);
+  }
+
+  onEditorBlur(): void {
+    if (this.referencing) {
+      return;
+    }
+
+    this.formulaSource = null;
+    this.hideSuggestions();
+    this.commitEdit('none', false);
   }
 
   onEditorKeydown(event: KeyboardEvent): void {
     event.stopPropagation();
+
+    if (this.handleSuggestionKey(event)) {
+      return;
+    }
 
     if (event.key === 'Enter') {
       event.preventDefault();
@@ -370,6 +454,8 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     const value = this.draftValue;
     this.editingCell = null;
     this.draftValue = '';
+    this.formulaSource = null;
+    this.hideSuggestions();
 
     if (cell.value !== value) {
       cell.value = value;
@@ -394,12 +480,293 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
 
     this.editingCell = null;
     this.draftValue = '';
+    this.formulaSource = null;
+    this.hideSuggestions();
     this.formulaValue = this.cellAt(editing.row, editing.column).value;
     this.focusGrid();
   }
 
+  private isFormulaEditing(): boolean {
+    return this.formulaSource !== null && this.currentDraft().trimStart().startsWith('=');
+  }
+
+  private currentDraft(): string {
+    return this.formulaSource === 'formula' ? this.formulaValue : this.draftValue;
+  }
+
+  private setDraft(value: string): void {
+    if (this.formulaSource === 'formula') {
+      this.formulaValue = value;
+    } else {
+      this.draftValue = value;
+      this.formulaValue = value;
+    }
+  }
+
+  private activeInput(): HTMLInputElement | undefined {
+    return this.formulaSource === 'formula'
+      ? this.formulaInputRef?.nativeElement
+      : this.editorRef?.nativeElement;
+  }
+
+  private startReferenceSelection(event: PointerEvent, row: number, column: number): void {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const input = this.activeInput();
+    this.referenceCaret = input?.selectionStart ?? this.currentDraft().length;
+    this.referenceAnchor = this.clampSelection(row, column);
+    this.referenceFocus = { ...this.referenceAnchor };
+    this.referencing = true;
+    this.selecting = false;
+    this.hideSuggestions();
+  }
+
+  private finishReferenceSelection(): void {
+    const anchor = this.referenceAnchor;
+    const focus = this.referenceFocus;
+
+    this.referencing = false;
+    this.referenceAnchor = null;
+    this.referenceFocus = null;
+
+    if (!anchor || !focus) {
+      return;
+    }
+
+    const reference = this.referenceLabel(anchor, focus);
+    const draft = this.currentDraft();
+    const caret = this.clamp(this.referenceCaret, 0, draft.length);
+    const value = `${draft.slice(0, caret)}${reference}${draft.slice(caret)}`;
+
+    this.setDraft(value);
+    this.focusActiveInput(caret + reference.length);
+  }
+
+  private referenceLabel(anchor: Selection, focus: Selection): string {
+    const top = Math.min(anchor.row, focus.row);
+    const bottom = Math.max(anchor.row, focus.row);
+    const left = Math.min(anchor.column, focus.column);
+    const right = Math.max(anchor.column, focus.column);
+    const start = `${this.columnLabel(left)}${top + 1}`;
+    const end = `${this.columnLabel(right)}${bottom + 1}`;
+    return start === end ? start : `${start}:${end}`;
+  }
+
+  private focusActiveInput(position: number): void {
+    setTimeout(() => {
+      const input = this.activeInput();
+      if (!input) {
+        return;
+      }
+
+      input.focus();
+      input.setSelectionRange(position, position);
+    });
+  }
+
+  private updateSuggestions(text: string, caret: number): void {
+    const query = this.suggestionQuery(text, caret);
+
+    if (query === null) {
+      this.hideSuggestions();
+      return;
+    }
+
+    const matches = FORMULA_FUNCTIONS
+      .filter(formula => formula.name.startsWith(query))
+      .slice(0, 8);
+
+    if (matches.length === 0) {
+      this.hideSuggestions();
+      return;
+    }
+
+    const input = this.activeInput();
+    if (input) {
+      const rect = input.getBoundingClientRect();
+      const width = 380;
+      const height = 280;
+      this.suggestionLeft = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8));
+      this.suggestionTop = rect.bottom + height > window.innerHeight
+        ? Math.max(8, rect.top - height - 6)
+        : rect.bottom + 6;
+    }
+
+    this.suggestions = matches;
+    this.suggestionIndex = 0;
+  }
+
+  private suggestionQuery(text: string, caret: number): string | null {
+    const before = text.slice(0, caret);
+    const equals = before.indexOf('=');
+
+    if (equals === -1 || before.slice(0, equals).trim() !== '') {
+      return null;
+    }
+
+    const after = before.slice(equals + 1);
+    let quoteOpen = false;
+    for (const character of after) {
+      if (character === '"') {
+        quoteOpen = !quoteOpen;
+      }
+    }
+
+    if (quoteOpen) {
+      return null;
+    }
+
+    const token = /([A-Za-z][A-Za-z0-9.]*)$/.exec(after);
+    if (token) {
+      return token[1].toUpperCase();
+    }
+
+    const trimmed = after.trimEnd();
+    if (trimmed === '' || /[(),+\-*/^&<>=]$/.test(trimmed)) {
+      return '';
+    }
+
+    return null;
+  }
+
+  private handleSuggestionKey(event: KeyboardEvent): boolean {
+    if (this.suggestions.length === 0) {
+      return false;
+    }
+
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      const direction = event.key === 'ArrowDown' ? 1 : -1;
+      this.suggestionIndex = (this.suggestionIndex + direction + this.suggestions.length) % this.suggestions.length;
+      return true;
+    }
+
+    if (event.key === 'Enter' || event.key === 'Tab') {
+      event.preventDefault();
+      this.insertSuggestion(this.suggestionIndex);
+      return true;
+    }
+
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      this.hideSuggestions();
+      return true;
+    }
+
+    return false;
+  }
+
+  insertSuggestion(index: number): void {
+    const suggestion = this.suggestions[index];
+    if (!suggestion) {
+      return;
+    }
+
+    const input = this.activeInput();
+    const text = this.currentDraft();
+    const caret = input?.selectionStart ?? text.length;
+    const before = text.slice(0, caret);
+    const token = /([A-Za-z][A-Za-z0-9.]*)$/.exec(before);
+    const start = token ? caret - token[1].length : caret;
+    const inserted = `${suggestion.name}(`;
+    const value = `${text.slice(0, start)}${inserted}${text.slice(caret)}`;
+
+    this.setDraft(value);
+    this.hideSuggestions();
+    this.focusActiveInput(start + inserted.length);
+  }
+
+  onEditorCaret(): void {
+    const editor = this.editorRef?.nativeElement;
+    if (editor) {
+      this.updateSuggestions(editor.value, editor.selectionStart ?? editor.value.length);
+    }
+  }
+
+  onEditorKeyup(event: KeyboardEvent): void {
+    if (['ArrowUp', 'ArrowDown', 'Enter', 'Tab', 'Escape'].includes(event.key)) {
+      return;
+    }
+
+    this.onEditorCaret();
+  }
+
+  private hideSuggestions(): void {
+    this.suggestions = [];
+    this.suggestionIndex = 0;
+  }
+
+  onFormulaFocus(): void {
+    this.formulaSource = 'formula';
+    const input = this.formulaInputRef?.nativeElement;
+    if (input) {
+      this.updateSuggestions(input.value, input.selectionStart ?? input.value.length);
+    }
+  }
+
+  onFormulaInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.formulaSource = 'formula';
+    this.formulaValue = input.value;
+    this.updateSuggestions(input.value, input.selectionStart ?? input.value.length);
+  }
+
+  onFormulaBlur(): void {
+    if (this.referencing) {
+      return;
+    }
+
+    const wasEditing = this.formulaSource === 'formula';
+    this.formulaSource = null;
+    this.hideSuggestions();
+
+    if (wasEditing) {
+      this.commitFormula();
+    }
+  }
+
+  onFormulaKeydown(event: KeyboardEvent): void {
+    if (this.handleSuggestionKey(event)) {
+      return;
+    }
+
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      this.commitFormula(event);
+      return;
+    }
+
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      this.formulaValue = this.activeCellData.value;
+      this.hideSuggestions();
+      this.formulaSource = null;
+      this.formulaInputRef?.nativeElement.blur();
+    }
+  }
+
+  onFormulaCaret(): void {
+    const input = this.formulaInputRef?.nativeElement;
+    if (input) {
+      this.updateSuggestions(input.value, input.selectionStart ?? input.value.length);
+    }
+  }
+
   onGridKeydown(event: KeyboardEvent): void {
     if (this.editingCell) {
+      const key = event.key;
+      if (key === 'Backspace') {
+        event.preventDefault();
+        this.draftValue = this.draftValue.slice(0, -1);
+        this.formulaValue = this.draftValue;
+        this.updateSuggestions(this.draftValue, this.draftValue.length);
+      } else if (!event.ctrlKey && !event.metaKey && !event.altKey && key.length === 1) {
+        event.preventDefault();
+        this.draftValue += key;
+        this.formulaValue = this.draftValue;
+        this.updateSuggestions(this.draftValue, this.draftValue.length);
+      }
       return;
     }
 
@@ -648,6 +1015,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     this.updateHistoryFlags();
     this.sheetChange.emit();
     this.scheduleSave();
+    this.scheduleRecalculate();
     this.focusGrid();
   }
 
@@ -662,6 +1030,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     this.updateHistoryFlags();
     this.sheetChange.emit();
     this.scheduleSave();
+    this.scheduleRecalculate();
     this.focusGrid();
   }
 
@@ -679,13 +1048,16 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     this.activeCell = { row: 0, column: 0 };
     this.selectionAnchor = { row: 0, column: 0 };
     this.formulaValue = '';
+    this.resetDisplayValues();
     this.pushHistory();
     this.focusGrid();
   }
 
   exportCsv(): void {
-    const content = this.cellData
-      .map(row => row.map(cell => this.escapeCsv(cell.value)).join(','))
+    const content = this.rowIndices
+      .map(row => this.columnIndices
+        .map(column => this.escapeCsv(this.displayAt(row, column)))
+        .join(','))
       .join('\r\n');
 
     const blob = new Blob([`\ufeff${content}`], { type: 'text/csv;charset=utf-8;' });
@@ -705,10 +1077,6 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     this.menuRefs?.forEach(menu => menu.nativeElement.open = false);
   }
 
-  onFormulaInput(event: Event): void {
-    this.formulaValue = (event.target as HTMLInputElement).value;
-  }
-
   commitFormula(event?: Event): void {
     if (event) {
       event.preventDefault();
@@ -726,8 +1094,12 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
       this.pushHistory();
     }
 
+    this.hideSuggestions();
+
     if (event) {
+      this.formulaSource = null;
       this.moveSelection('down');
+      this.formulaInputRef?.nativeElement.blur();
     } else {
       this.formulaValue = cell.value;
     }
@@ -750,6 +1122,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     this.updateHistoryFlags();
     this.sheetChange.emit();
     this.scheduleSave();
+    this.scheduleRecalculate();
   }
 
   private updateHistoryFlags(): void {
@@ -784,6 +1157,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     };
     this.selectionAnchor = { ...this.activeCell };
     this.formulaValue = this.activeCellData.value;
+    this.resetDisplayValues();
   }
 
   private rebuildIndices(): void {
@@ -875,6 +1249,36 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     }, 400);
   }
 
+  private resetDisplayValues(): void {
+    this.displayValues = this.cellData.map(row => row.map(cell => cell.value));
+  }
+
+  private scheduleRecalculate(): void {
+    if (this.recalculateTimer) {
+      clearTimeout(this.recalculateTimer);
+    }
+
+    this.recalculateTimer = setTimeout(() => void this.recalculate(), 40);
+  }
+
+  private async recalculate(): Promise<void> {
+    const version = ++this.recalculateVersion;
+    const rows = this.rows;
+    const columns = this.columns;
+    const cells = this.cellData.map(row => row.map(cell => cell.value));
+
+    try {
+      const values = await this.engine.evaluate(rows, columns, cells);
+      if (version === this.recalculateVersion) {
+        this.displayValues = values;
+      }
+    } catch {
+      if (version === this.recalculateVersion) {
+        this.displayValues = cells;
+      }
+    }
+  }
+
   private focusGrid(): void {
     setTimeout(() => this.gridRef?.nativeElement.focus({ preventScroll: true }));
   }
@@ -899,10 +1303,10 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     };
   }
 
-  private forEachSelectedCell(callback: (cell: Cell) => void): void {
+  private forEachSelectedCell(callback: (cell: Cell, row: number, column: number) => void): void {
     for (let row = this.selectionTop; row <= this.selectionBottom; row += 1) {
       for (let column = this.selectionLeft; column <= this.selectionRight; column += 1) {
-        callback(this.cellAt(row, column));
+        callback(this.cellAt(row, column), row, column);
       }
     }
   }

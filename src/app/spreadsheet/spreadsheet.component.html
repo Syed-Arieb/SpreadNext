@@ -159,15 +159,18 @@
     <span class="cell-address" [attr.aria-label]="'Active cell ' + activeAddress">{{ activeAddress }}</span>
     <span class="fx" aria-hidden="true">fx</span>
     <input
+      #formulaInput
       class="formula-input"
       type="text"
       aria-label="Formula bar"
       spellcheck="false"
       autocomplete="off"
       [value]="formulaValue"
+      (focus)="onFormulaFocus()"
       (input)="onFormulaInput($event)"
-      (keydown.enter)="commitFormula($event)"
-      (blur)="commitFormula()"
+      (keydown)="onFormulaKeydown($event)"
+      (click)="onFormulaCaret()"
+      (blur)="onFormulaBlur()"
     />
   </div>
 
@@ -219,6 +222,7 @@
                 class="cell"
                 [class.active]="isActive(row, column)"
                 [class.selected]="isSelected(row, column)"
+                [class.reference]="isReferenceCell(row, column)"
                 [class.editing]="isEditing(row, column)"
                 [attr.data-row]="row"
                 [attr.data-col]="column"
@@ -236,7 +240,9 @@
                     [value]="draftValue"
                     (input)="onEditorInput($event)"
                     (keydown)="onEditorKeydown($event)"
-                    (blur)="commitEdit('none', false)"
+                    (keyup)="onEditorKeyup($event)"
+                    (click)="onEditorCaret()"
+                    (blur)="onEditorBlur()"
                   />
                 } @else {
                   <span
@@ -245,8 +251,9 @@
                     [class.italic]="cellAt(row, column).style.italic"
                     [class.underline]="cellAt(row, column).style.underline"
                     [class.strike]="cellAt(row, column).style.strike"
+                    [class.error]="displayAt(row, column).startsWith('#')"
                     [style.text-align]="cellAt(row, column).style.align"
-                  >{{ cellAt(row, column).value }}</span>
+                  >{{ displayAt(row, column) }}</span>
                 }
               </td>
             }
@@ -266,4 +273,30 @@
       <span class="status-summary">{{ selectionSummary }}</span>
     }
   </footer>
+
+  @if (suggestions.length > 0) {
+    <div
+      class="formula-suggest"
+      role="listbox"
+      aria-label="Formula suggestions"
+      [style.top.px]="suggestionTop"
+      [style.left.px]="suggestionLeft"
+    >
+      @for (formula of suggestions; track formula.name; let index = $index) {
+        <button
+          type="button"
+          role="option"
+          class="formula-suggest-item"
+          [class.is-active]="index === suggestionIndex"
+          [attr.aria-selected]="index === suggestionIndex"
+          (pointerdown)="$event.preventDefault(); $event.stopPropagation(); insertSuggestion(index)"
+          (mouseenter)="suggestionIndex = index"
+        >
+          <span class="formula-suggest-name">{{ formula.name }}</span>
+          <span class="formula-suggest-signature">{{ formula.signature }}</span>
+          <span class="formula-suggest-description">{{ formula.description }}</span>
+        </button>
+      }
+    </div>
+  }
 </div>
