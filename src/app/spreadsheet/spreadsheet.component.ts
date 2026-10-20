@@ -257,7 +257,13 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   }
 
   displayAt(row: number, column: number): string {
-    return this.displayValues[row]?.[column] ?? this.cellAt(row, column).value;
+    const cell = this.cellAt(row, column);
+
+    if (!cell.value.trimStart().startsWith('=')) {
+      return cell.value;
+    }
+
+    return this.displayValues[row]?.[column] ?? cell.value;
   }
 
   cellAt(row: number, column: number): Cell {
