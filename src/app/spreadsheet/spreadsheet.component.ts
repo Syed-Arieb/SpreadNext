@@ -50,6 +50,14 @@ interface Selection {
   column: number;
 }
 
+interface ReferenceInsertion {
+  draft: string;
+  start: number;
+  end: number;
+  anchor: Selection;
+  focus: Selection;
+}
+
 interface SheetSnapshot {
   rows: number;
   columns: number;
@@ -136,6 +144,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   private referenceAnchor: Selection | null = null;
   private referenceFocus: Selection | null = null;
   private referenceCaret = 0;
+  private referenceInsertion: ReferenceInsertion | null = null;
 
   private resizeStartX = 0;
   private resizeStartWidth = 0;
@@ -327,8 +336,15 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     }
 
     if (this.formulaSource !== null && this.isFormulaEditing()) {
-      this.startReferenceSelection(event, row, column);
-      return;
+      if (this.canInsertReference()) {
+        this.startReferenceSelection(event, row, column);
+        return;
+      }
+
+      if (this.formulaSource === 'formula') {
+        this.commitFormula();
+        this.formulaSource = null;
+      }
     }
 
     this.selectCell(row, column, event.shiftKey);
@@ -389,6 +405,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     this.editingCell = { ...this.activeCell };
     this.draftValue = initialValue ?? cell.value;
     this.formulaValue = this.draftValue;
+    this.referenceInsertion = null;
 
     setTimeout(() => {
       const editor = this.editorRef?.nativeElement;
@@ -412,6 +429,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     this.formulaSource = 'cell';
     this.draftValue = editor.value;
     this.formulaValue = this.draftValue;
+    this.referenceInsertion = null;
     this.updateSuggestions(editor.value, editor.selectionStart ?? editor.value.length);
   }
 
@@ -461,6 +479,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     this.editingCell = null;
     this.draftValue = '';
     this.formulaSource = null;
+    this.referenceInsertion = null;
     this.hideSuggestions();
 
     if (cell.value !== value) {
@@ -487,6 +506,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     this.editingCell = null;
     this.draftValue = '';
     this.formulaSource = null;
+    this.referenceInsertion = null;
     this.hideSuggestions();
     this.formulaValue = this.cellAt(editing.row, editing.column).value;
     this.focusGrid();
@@ -515,14 +535,58 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
       : this.editorRef?.nativeElement;
   }
 
+  private canInsertReference(): boolean {
+    const text = this.currentDraft();
+    const input = this.activeInput();
+    const previous = this.referenceInsertion;
+
+    if (
+      previous &&
+      previous.draft === text &&
+      input &&
+      input.selectionStart === previous.end &&
+      input.selectionEnd === previous.end
+    ) {
+      return true;
+    }
+
+    const caret = input?.selectionStart ?? text.length;
+    const before = text.slice(0, caret).trimEnd();
+
+    return before.length > 0 && /[(,+\-*/^&<>=]$/.test(before);
+  }
+
   private startReferenceSelection(event: PointerEvent, row: number, column: number): void {
     event.preventDefault();
     event.stopPropagation();
 
     const input = this.activeInput();
-    this.referenceCaret = input?.selectionStart ?? this.currentDraft().length;
-    this.referenceAnchor = this.clampSelection(row, column);
-    this.referenceFocus = { ...this.referenceAnchor };
+    const draft = this.currentDraft();
+    const previous = this.referenceInsertion;
+    let caret = input?.selectionStart ?? draft.length;
+    let anchor = this.clampSelection(row, column);
+
+    if (
+      previous &&
+      previous.draft === draft &&
+      input &&
+      input.selectionStart === previous.end &&
+      input.selectionEnd === previous.end
+    ) {
+      if (event.shiftKey) {
+        anchor = { ...previous.anchor };
+      }
+
+      this.setDraft(draft.slice(0, previous.start) + draft.slice(previous.end));
+      caret = previous.start;
+      this.referenceInsertion = null;
+    } else if (previous?.draft !== draft) {
+      this.referenceInsertion = null;
+    }
+
+    this.referenceCaret = caret;
+    this.referenceAnchor = anchor;
+    this.referenceFocus = this.clampSelection(row, column);
     this.referencing = true;
     this.selecting = false;
     this.hideSuggestions();
@@ -546,6 +610,13 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     const value = `${draft.slice(0, caret)}${reference}${draft.slice(caret)}`;
 
     this.setDraft(value);
+    this.referenceInsertion = {
+      draft: value,
+      start: caret,
+      end: caret + reference.length,
+      anchor: { ...anchor },
+      focus: { ...focus }
+    };
     this.focusActiveInput(caret + reference.length);
   }
 
@@ -629,7 +700,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     }
 
     const trimmed = after.trimEnd();
-    if (trimmed === '' || /[(),+\-*/^&<>=]$/.test(trimmed)) {
+    if (trimmed === '' || /[(,+\-*/^&<>=]$/.test(trimmed)) {
       return '';
     }
 
@@ -684,6 +755,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     const value = `${text.slice(0, start)}${inserted}${text.slice(caret)}`;
 
     this.setDraft(value);
+    this.referenceInsertion = null;
     this.hideSuggestions();
     this.focusActiveInput(start + inserted.length);
   }
@@ -720,6 +792,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     const input = event.target as HTMLInputElement;
     this.formulaSource = 'formula';
     this.formulaValue = input.value;
+    this.referenceInsertion = null;
     this.updateSuggestions(input.value, input.selectionStart ?? input.value.length);
   }
 
@@ -779,11 +852,13 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
         event.preventDefault();
         this.draftValue = this.draftValue.slice(0, -1);
         this.formulaValue = this.draftValue;
+        this.referenceInsertion = null;
         this.updateSuggestions(this.draftValue, this.draftValue.length);
       } else if (!event.ctrlKey && !event.metaKey && !event.altKey && key.length === 1) {
         event.preventDefault();
         this.draftValue += key;
         this.formulaValue = this.draftValue;
+        this.referenceInsertion = null;
         this.updateSuggestions(this.draftValue, this.draftValue.length);
       }
       return;
@@ -1114,6 +1189,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     }
 
     this.hideSuggestions();
+    this.referenceInsertion = null;
 
     if (event) {
       this.formulaSource = null;
