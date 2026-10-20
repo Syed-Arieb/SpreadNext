@@ -42,6 +42,7 @@ import { FormulaEngine } from './formula-engine';
 import { FORMULA_FUNCTIONS, FormulaFunction } from './formula-functions';
 import { FormulaReference, parseFormulaReferences } from './formula-references';
 import { normalizeFormula } from './formula-text';
+import { trimToUsedRange } from './sheet-range';
 import { BorderIconComponent } from './border-icon.component';
 
 export type { CellAlign, CellStyle };
@@ -1716,10 +1717,12 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   }
 
   private fallbackCsv(): string {
-    return this.rowIndices
-      .map(row => this.columnIndices
-        .map(column => this.escapeCsv(this.displayAt(row, column)))
-        .join(','))
+    const values = this.rowIndices.map(row =>
+      this.columnIndices.map(column => this.displayAt(row, column))
+    );
+
+    return trimToUsedRange(values)
+      .map(row => row.map(value => this.escapeCsv(value)).join(','))
       .join('\r\n');
   }
 

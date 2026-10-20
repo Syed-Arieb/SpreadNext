@@ -171,14 +171,15 @@ fn calculate_csv(input: &[u8]) -> Vec<u8> {
     let columns = request.columns.min(MAX_COLUMNS);
     let mut sheet = Sheet::new(rows, columns, request.cells);
     let values = sheet.calculate();
+    let (used_rows, used_columns) = used_range(&values);
 
     let mut csv = String::new();
-    for (row_index, row) in values.iter().enumerate() {
+    for (row_index, row) in values.iter().take(used_rows).enumerate() {
         if row_index > 0 {
             csv.push_str("\r\n");
         }
 
-        for (column_index, value) in row.iter().enumerate() {
+        for (column_index, value) in row.iter().take(used_columns).enumerate() {
             if column_index > 0 {
                 csv.push(',');
             }
@@ -190,6 +191,22 @@ fn calculate_csv(input: &[u8]) -> Vec<u8> {
     output.push(0);
     output.extend_from_slice(csv.as_bytes());
     output
+}
+
+fn used_range(values: &[Vec<String>]) -> (usize, usize) {
+    let mut rows = 0;
+    let mut columns = 0;
+
+    for (row_index, row) in values.iter().enumerate() {
+        for (column_index, value) in row.iter().enumerate() {
+            if !value.is_empty() {
+                rows = rows.max(row_index + 1);
+                columns = columns.max(column_index + 1);
+            }
+        }
+    }
+
+    (rows, columns)
 }
 
 fn export_error(message: &str) -> Vec<u8> {
@@ -266,8 +283,7 @@ const WORKBOOK_RELS_XML: &str = r#"<?xml version="1.0" encoding="UTF-8" standalo
 </Relationships>"#;
 
 fn worksheet_xml(values: &[Vec<String>]) -> String {
-    let row_count = values.len();
-    let column_count = values.iter().map(Vec::len).max().unwrap_or(0);
+    let (row_count, column_count) = used_range(values);
     let dimension = if row_count == 0 || column_count == 0 {
         "A1".to_string()
     } else {
@@ -283,13 +299,13 @@ fn worksheet_xml(values: &[Vec<String>]) -> String {
     xml.push_str(&dimension);
     xml.push_str(r#""/><sheetData>"#);
 
-    for (row_index, row) in values.iter().enumerate() {
+    for (row_index, row) in values.iter().take(row_count).enumerate() {
         let row_number = row_index + 1;
         xml.push_str(r#"<row r=""#);
         xml.push_str(&row_number.to_string());
         xml.push_str(r#"">"#);
 
-        for (column_index, value) in row.iter().enumerate() {
+        for (column_index, value) in row.iter().take(column_count).enumerate() {
             if value.is_empty() {
                 continue;
             }
@@ -475,6 +491,27 @@ mod tests {
     }
 
     #[test]
+    fn trims_empty_trailing_rows_and_columns() {
+        let input = br#"{"rows":5,"columns":6,"cells":[["a","","c"],["","",""],["","",""],["","",""],["","",""]]}"#;
+        let output = calculate_csv(input);
+
+        assert_eq!(output[0], 0);
+        assert_eq!(
+            std::str::from_utf8(&output[1..]).unwrap(),
+            "\"a\",\"\",\"c\""
+        );
+    }
+
+    #[test]
+    fn exports_an_empty_csv_for_an_empty_sheet() {
+        let input = br#"{"rows":3,"columns":3,"cells":[["","",""],["","",""],["","",""]]}"#;
+        let output = calculate_csv(input);
+
+        assert_eq!(output[0], 0);
+        assert!(output[1..].is_empty());
+    }
+
+    #[test]
     fn exports_xlsx_archive() {
         let input = br#"{"rows":2,"columns":2,"cells":[["hello & <world>","=1+2"],["42","=A1"]]}"#;
         let output = calculate_xlsx(input);
@@ -506,6 +543,20 @@ mod tests {
 
         assert_eq!(output[0], 1);
         assert!(!output[1..].is_empty());
+    }
+
+    #[test]
+    fn trims_the_xlsx_dimension_to_the_used_range() {
+        let input = br#"{"rows":4,"columns":5,"cells":[["a","","c"],["","",""],["","",""],["","",""]]}"#;
+        let output = calculate_xlsx(input);
+
+        assert_eq!(output[0], 0);
+        let bytes = &output[1..];
+        let entries = read_stored_zip(bytes);
+        let sheet = std::str::from_utf8(entries.get("xl/worksheets/sheet1.xml").unwrap()).unwrap();
+
+        assert!(sheet.contains(r#"<dimension ref="A1:C1"/>"#));
+        assert!(!sheet.contains(r#"<row r="2">"#));
     }
 
     fn read_stored_zip(bytes: &[u8]) -> HashMap<String, Vec<u8>> {
