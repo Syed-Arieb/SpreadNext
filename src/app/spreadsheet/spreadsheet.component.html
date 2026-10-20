@@ -9,7 +9,7 @@
           <kbd>Ctrl S</kbd>
         </button>
         <hr />
-        <button type="button" (click)="newSheet(); closeMenus()">
+        <button type="button" (click)="requestNewSheet()">
           <span class="menu-check">＋</span>
           New sheet
         </button>
@@ -410,6 +410,51 @@
               </span>
             </span>
             <svg class="export-option-arrow" [cIcon]="icons.cilArrowRight" aria-hidden="true"></svg>
+          </button>
+        </div>
+      </section>
+    </div>
+  }
+
+  @if (confirmNewSheetOpen) {
+    <div class="export-backdrop" (pointerdown)="cancelNewSheet()">
+      <section
+        #newSheetDialog
+        class="export-menu confirm-menu"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="new-sheet-title"
+        aria-describedby="new-sheet-copy"
+        (pointerdown)="$event.stopPropagation()"
+      >
+        <header class="export-header">
+          <span class="export-heading-icon" aria-hidden="true">
+            <svg [cIcon]="icons.cilPlus"></svg>
+          </span>
+          <div class="export-heading">
+            <h2 id="new-sheet-title">New sheet?</h2>
+          </div>
+        </header>
+
+        <p class="confirm-copy" id="new-sheet-copy">
+          This clears the current sheet. You can undo it.
+        </p>
+
+        <div class="confirm-actions">
+          <button
+            #newSheetCancel
+            type="button"
+            class="confirm-button"
+            (click)="cancelNewSheet()"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="confirm-button confirm-button--primary"
+            (click)="confirmNewSheet()"
+          >
+            New sheet
           </button>
         </div>
       </section>

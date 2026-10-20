@@ -651,6 +651,58 @@
   line-height: 1.55;
 }
 
+.confirm-menu {
+  width: min(390px, 100%);
+}
+
+.confirm-copy {
+  margin: 4px 0 20px 52px;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.confirm-button {
+  min-height: 36px;
+  padding: 0 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background 0.14s, border-color 0.14s, filter 0.14s;
+}
+
+.confirm-button:hover {
+  background: var(--surface-3);
+  border-color: var(--border-strong);
+}
+
+.confirm-button--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+
+.confirm-button--primary:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  filter: brightness(1.08);
+}
+
+.confirm-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .export-options {
   display: grid;
   gap: 10px;
@@ -801,6 +853,10 @@
     margin-left: 0;
   }
 
+  .confirm-copy {
+    margin-left: 0;
+  }
+
   .export-option {
     grid-template-columns: 40px minmax(0, 1fr);
     gap: 12px;
@@ -832,6 +888,10 @@
 
   .export-option,
   .export-option-arrow {
+    transition: none;
+  }
+
+  .confirm-button {
     transition: none;
   }
 }

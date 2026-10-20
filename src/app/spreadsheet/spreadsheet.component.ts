@@ -162,6 +162,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   resizingColumn: number | null = null;
   selecting = false;
   exportMenuOpen = false;
+  confirmNewSheetOpen = false;
 
   private readonly engine = inject(FormulaEngine);
   private formulaSource: 'cell' | 'formula' | null = null;
@@ -173,6 +174,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   private cachedReferenceFormula = '';
   private cachedFormulaReferences: FormulaReference[] = [];
   private exportReturnFocus: HTMLElement | null = null;
+  private newSheetReturnFocus: HTMLElement | null = null;
 
   private resizeStartX = 0;
   private resizeStartWidth = 0;
@@ -185,6 +187,8 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   @ViewChild('formulaInput') private formulaInputRef?: ElementRef<HTMLInputElement>;
   @ViewChild('exportFirst') private exportFirstRef?: ElementRef<HTMLButtonElement>;
   @ViewChild('exportDialog') private exportDialogRef?: ElementRef<HTMLElement>;
+  @ViewChild('newSheetCancel') private newSheetCancelRef?: ElementRef<HTMLButtonElement>;
+  @ViewChild('newSheetDialog') private newSheetDialogRef?: ElementRef<HTMLElement>;
   @ViewChildren('menu') private menuRefs?: QueryList<ElementRef<HTMLDetailsElement>>;
 
   private history: SheetSnapshot[] = [];
@@ -1262,11 +1266,44 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     this.focusGrid();
   }
 
-  newSheet(): void {
-    if (!window.confirm('Start a new sheet? This clears the current sheet. You can undo this action.')) {
+  requestNewSheet(): void {
+    const active = document.activeElement;
+    this.newSheetReturnFocus = active instanceof HTMLElement ? active : null;
+    this.commitEdit('none', false);
+
+    if (this.formulaSource === 'formula') {
+      this.commitFormula();
+    }
+
+    this.closeMenus();
+    this.hideSuggestions();
+    this.confirmNewSheetOpen = true;
+    setTimeout(() => this.newSheetCancelRef?.nativeElement.focus({ preventScroll: true }));
+  }
+
+  cancelNewSheet(): void {
+    if (!this.confirmNewSheetOpen) {
       return;
     }
 
+    this.confirmNewSheetOpen = false;
+    const target = this.newSheetReturnFocus;
+    this.newSheetReturnFocus = null;
+
+    if (target?.isConnected && target.getClientRects().length > 0) {
+      target.focus();
+    } else {
+      this.focusGrid();
+    }
+  }
+
+  confirmNewSheet(): void {
+    if (!this.confirmNewSheetOpen) {
+      return;
+    }
+
+    this.confirmNewSheetOpen = false;
+    this.newSheetReturnFocus = null;
     this.commitEdit('none', false);
     this.rows = DEFAULT_ROWS;
     this.columns = DEFAULT_COLUMNS;
@@ -1329,6 +1366,10 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   }
 
   openExportMenu(): void {
+    if (this.confirmNewSheetOpen) {
+      return;
+    }
+
     const active = document.activeElement;
     this.exportReturnFocus = active instanceof HTMLElement ? active : null;
     this.commitEdit('none', false);
@@ -1360,17 +1401,29 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   }
 
   @HostListener('document:keydown.escape')
-  closeExportMenuOnEscape(): void {
+  closeDialogOnEscape(): void {
+    if (this.confirmNewSheetOpen) {
+      this.cancelNewSheet();
+      return;
+    }
+
     this.closeExportMenu();
   }
 
   @HostListener('document:keydown', ['$event'])
-  trapExportFocus(event: KeyboardEvent): void {
-    if (!this.exportMenuOpen || event.key !== 'Tab') {
+  trapDialogFocus(event: KeyboardEvent): void {
+    if (event.key !== 'Tab') {
       return;
     }
 
-    const dialog = this.exportDialogRef?.nativeElement;
+    let dialog: HTMLElement | undefined;
+
+    if (this.confirmNewSheetOpen) {
+      dialog = this.newSheetDialogRef?.nativeElement;
+    } else if (this.exportMenuOpen) {
+      dialog = this.exportDialogRef?.nativeElement;
+    }
+
     if (!dialog) {
       return;
     }
