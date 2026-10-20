@@ -208,7 +208,15 @@
       </colgroup>
       <thead>
         <tr>
-          <th class="corner" scope="col"></th>
+          <th class="corner" scope="col">
+            <button
+              type="button"
+              class="corner-button"
+              title="Select all cells"
+              aria-label="Select all cells"
+              (click)="selectAll()"
+            ></button>
+          </th>
           @for (column of columnIndices; track column) {
             <th
               class="col-header"
