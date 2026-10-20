@@ -32,6 +32,7 @@ import {
   cilX
 } from '@coreui/icons';
 import { IconDirective } from '@coreui/icons-angular';
+import { exportFileName } from './export-file-name';
 import { FormulaEngine } from './formula-engine';
 import { FORMULA_FUNCTIONS, FormulaFunction } from './formula-functions';
 import { FormulaReference, parseFormulaReferences } from './formula-references';
@@ -110,6 +111,7 @@ const DEFAULT_STYLE: CellStyle = {
 export class SpreadsheetComponent implements OnInit, OnDestroy {
   @Input() rows = DEFAULT_ROWS;
   @Input() columns = DEFAULT_COLUMNS;
+  @Input() documentTitle = 'Untitled spreadsheet';
 
   @Output() cellChange = new EventEmitter<{ row: number; column: number; value: string }>();
   @Output() sheetChange = new EventEmitter<void>();
@@ -1290,7 +1292,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
 
     this.downloadFile(
       `\ufeff${content}`,
-      'spread-next.csv',
+      exportFileName(this.documentTitle, 'csv'),
       'text/csv;charset=utf-8;'
     );
   }
@@ -1302,7 +1304,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
       const content = await this.engine.exportXlsx(this.rows, this.columns, cells);
       this.downloadFile(
         content,
-        'spread-next.xlsx',
+        exportFileName(this.documentTitle, 'xlsx'),
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
       );
     } catch (error) {

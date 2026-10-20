@@ -17,6 +17,7 @@
       autocomplete="off"
       [value]="documentTitle"
       (input)="onTitleInput($event)"
+      (focus)="onTitleFocus($event)"
     />
 
     <span class="spacer"></span>
@@ -37,6 +38,7 @@
   </header>
 
   <app-spreadsheet
+    [documentTitle]="documentTitle"
     (cellChange)="onCellChange()"
     (sheetChange)="onSheetChange()"
     (saved)="onSaved()"

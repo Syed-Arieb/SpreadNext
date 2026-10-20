@@ -27,6 +27,7 @@ export class AppComponent {
     if (savedTitle) {
       this.documentTitle = savedTitle;
     }
+    this.updateDocumentTitle();
 
     const theme = document.documentElement.dataset['theme'];
     this.darkMode = theme
@@ -38,6 +39,7 @@ export class AppComponent {
   onTitleInput(event: Event): void {
     this.documentTitle = (event.target as HTMLInputElement).value;
     this.unsavedChanges = true;
+    this.updateDocumentTitle();
 
     if (this.titleSaveTimer) {
       clearTimeout(this.titleSaveTimer);
@@ -50,6 +52,15 @@ export class AppComponent {
       }
       this.unsavedChanges = false;
     }, 600);
+  }
+
+  onTitleFocus(event: FocusEvent): void {
+    const input = event.target as HTMLInputElement;
+    setTimeout(() => {
+      if (document.activeElement === input) {
+        input.select();
+      }
+    });
   }
 
   onCellChange(): void {
@@ -102,6 +113,10 @@ export class AppComponent {
 
   private applyTheme(): void {
     document.documentElement.dataset['theme'] = this.darkMode ? 'dark' : 'light';
+  }
+
+  private updateDocumentTitle(): void {
+    document.title = `${this.title} - ${this.documentTitle.trim() || 'Untitled spreadsheet'}`;
   }
 
   private persistTitle(): boolean {
