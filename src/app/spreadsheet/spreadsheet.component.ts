@@ -31,14 +31,22 @@ import {
   cilBorderRight,
   cilBorderTop,
   cilBorderVertical,
+  cilBrushAlt,
+  cilCheck,
   cilCloudDownload,
   cilColorFill,
   cilDescription,
   cilGrid,
+  cilGridSlash,
   cilItalic,
   cilPlus,
+  cilPrint,
+  cilSave,
+  cilShortText,
   cilSpreadsheet,
+  cilSquare,
   cilStrikethrough,
+  cilTrash,
   cilUnderline,
   cilX
 } from '@coreui/icons';
@@ -48,35 +56,30 @@ import {
   BorderPreset,
   BorderSide,
   CellBorder,
-  CellBorders,
   DiagonalSide,
   DIAGONAL_SIDES,
   BORDER_SIDES,
   applyBorderPreset,
   borderCss,
-  cloneCellBorders,
-  createCellBorders,
   diagonalGradient,
   normalizeCellBorders,
   normalizeColor
 } from './cell-borders';
+import {
+  CellAlign,
+  CellStyle,
+  DEFAULT_CELL_STYLE,
+  clearCellFormatting,
+  cloneCellStyle,
+  hasCellFormatting
+} from './cell-style';
 import { exportFileName } from './export-file-name';
 import { FormulaEngine } from './formula-engine';
 import { FORMULA_FUNCTIONS, FormulaFunction } from './formula-functions';
 import { FormulaReference, parseFormulaReferences } from './formula-references';
 import { normalizeFormula } from './formula-text';
 
-export type CellAlign = 'left' | 'center' | 'right';
-
-export interface CellStyle {
-  bold: boolean;
-  italic: boolean;
-  underline: boolean;
-  strike: boolean;
-  align: CellAlign;
-  background: string | null;
-  borders: CellBorders;
-}
+export type { CellAlign, CellStyle };
 
 export interface Cell {
   value: string;
@@ -123,16 +126,6 @@ const MAX_HISTORY = 100;
 const STORAGE_KEY = 'spreadnext-sheet';
 const REFERENCE_COLORS = ['#3b82f6', '#ef4444', '#10b981', '#a855f7', '#f59e0b', '#06b6d4'];
 
-const DEFAULT_STYLE: CellStyle = {
-  bold: false,
-  italic: false,
-  underline: false,
-  strike: false,
-  align: 'left',
-  background: null,
-  borders: createCellBorders()
-};
-
 const DEFAULT_BORDER_COLOR = '#64748b';
 const FILL_COLORS = [
   '#ffffff', '#f8fafc', '#f1f5f9', '#e2e8f0', '#cbd5e1', '#94a3b8', '#64748b',
@@ -143,13 +136,6 @@ const FILL_COLORS = [
   '#eff6ff', '#dbeafe', '#bfdbfe', '#93c5fd', '#60a5fa', '#3b82f6', '#2563eb',
   '#faf5ff', '#f3e8ff', '#e9d5ff', '#d8b4fe', '#c084fc', '#a855f7', '#9333ea'
 ];
-
-function cloneCellStyle(style: CellStyle): CellStyle {
-  return {
-    ...style,
-    borders: cloneCellBorders(style.borders)
-  };
-}
 
 function contrastTextColor(background: string | null): string | null {
   if (!background) {
@@ -195,14 +181,22 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     cilArrowRight,
     cilBold,
     cilBorderAll,
+    cilBrushAlt,
+    cilCheck,
     cilCloudDownload,
     cilColorFill,
     cilDescription,
     cilGrid,
+    cilGridSlash,
     cilItalic,
     cilPlus,
+    cilPrint,
+    cilSave,
+    cilShortText,
     cilSpreadsheet,
+    cilSquare,
     cilStrikethrough,
+    cilTrash,
     cilUnderline,
     cilX
   };
@@ -344,6 +338,18 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   get activeCellHasBorders(): boolean {
     return [...BORDER_SIDES, ...DIAGONAL_SIDES]
       .some(side => this.activeCellData.style.borders[side] !== null);
+  }
+
+  get selectionHasFormatting(): boolean {
+    let found = false;
+
+    this.forEachSelectedCell(cell => {
+      if (!found && hasCellFormatting(cell.style)) {
+        found = true;
+      }
+    });
+
+    return found;
   }
 
   get activeAddress(): string {
@@ -1336,6 +1342,21 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     this.pushHistory();
   }
 
+  clearFormatting(): void {
+    let changed = false;
+
+    this.forEachSelectedCell(cell => {
+      if (hasCellFormatting(cell.style)) {
+        cell.style = clearCellFormatting();
+        changed = true;
+      }
+    });
+
+    if (changed) {
+      this.pushHistory();
+    }
+  }
+
   setAlignment(align: CellAlign): void {
     let changed = false;
 
@@ -1828,7 +1849,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   }
 
   private createCell(): Cell {
-    return { value: '', style: cloneCellStyle(DEFAULT_STYLE) };
+    return { value: '', style: cloneCellStyle(DEFAULT_CELL_STYLE) };
   }
 
   private normalizeCell(raw: unknown): Cell {

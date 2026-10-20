@@ -57,7 +57,7 @@
   top: calc(100% + 6px);
   left: 0;
   z-index: 50;
-  min-width: 224px;
+  min-width: 236px;
   padding: 6px;
   background: var(--surface);
   border: 1px solid var(--border-strong);
@@ -68,9 +68,10 @@
 .menu-panel button {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
-  padding: 8px 10px;
+  height: 32px;
+  padding: 0 10px;
   background: transparent;
   border: none;
   border-radius: 6px;
@@ -95,12 +96,34 @@
   border-top: 1px solid var(--border);
 }
 
+.menu-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  color: var(--text-muted);
+}
+
+.menu-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
 .menu-check {
   display: inline-flex;
+  align-items: center;
   justify-content: center;
+  flex: 0 0 16px;
   width: 16px;
+  height: 16px;
   color: var(--accent);
-  font-size: 12px;
+}
+
+.menu-check svg {
+  width: 14px;
+  height: 14px;
 }
 
 .menu-panel kbd {
