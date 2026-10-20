@@ -533,9 +533,35 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
       return;
     }
 
+    if (event.isComposing) {
+      return;
+    }
+
     event.stopPropagation();
 
+    if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+      event.preventDefault();
+      this.commitEdit(event.key === 'ArrowUp' ? 'up' : 'down');
+      return;
+    }
+
     if (this.handleSuggestionKey(event)) {
+      return;
+    }
+
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      const editor = event.target as HTMLInputElement;
+      const start = editor.selectionStart ?? 0;
+      const end = editor.selectionEnd ?? start;
+      const atBoundary = start === end && (
+        (event.key === 'ArrowLeft' && start === 0) ||
+        (event.key === 'ArrowRight' && start === editor.value.length)
+      );
+
+      if (atBoundary) {
+        event.preventDefault();
+        this.commitEdit(event.key === 'ArrowLeft' ? 'left' : 'right');
+      }
       return;
     }
 
