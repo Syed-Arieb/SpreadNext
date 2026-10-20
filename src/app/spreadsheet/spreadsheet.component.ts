@@ -224,6 +224,8 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   }
 
   onEditorKeydown(event: KeyboardEvent): void {
+    event.stopPropagation();
+
     if (event.key === 'Enter') {
       event.preventDefault();
       this.commitEdit(event.shiftKey ? 'up' : 'down');
@@ -281,6 +283,10 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   }
 
   onGridKeydown(event: KeyboardEvent): void {
+    if (this.editingCell) {
+      return;
+    }
+
     const key = event.key;
     const modifier = event.ctrlKey || event.metaKey;
 
