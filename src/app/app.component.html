@@ -1,52 +1,44 @@
 <div class="container">
-  <header>
-    <span class="title">{{title}}</span>
-    <input type="text" name="spread-title" id="spread-title" value="Untitled Spreadsheet" autocomplete="off" spellcheck="false" placeholder="Spreadsheet Title">
-  </header>
-  <section class="actions">
-    <span>File</span>
-    <span>Edit</span>
-    <span>View</span>
-    <span>Insert</span>
-    <span>Format</span>
-    <span>Data</span>
-    <span>Tools</span>
-  </section>
-  <section class="quick-menu">
-    <span>
-      <img src="/icons/undo.svg" alt="" width="22" height="22">
-    </span>
-    <span>
-      <img src="/icons/redo.svg" alt="" width="22" height="22">
-    </span>
-    <span>
-      <img src="/icons/print.svg" alt="" width="22" height="22">
-    </span>
-    <span>
-      <img src="/icons/format.svg" alt="" width="22" height="22">
-    </span>
-    <span>
-      <img src="/icons/pagesize.svg" alt="" width="22" height="22">
-    </span>
-    <span>
-      <img src="/icons/fontsize.svg" alt="" width="22" height="22">
-    </span>
-    <span>
-      <img src="/icons/bold.svg" alt="" width="22" height="22">
-    </span>
-    <span>
-      <img src="/icons/italic.svg" alt="" width="22" height="22">
-    </span>
-    <span>
-      <img src="/icons/underline.svg" alt="" width="22" height="22">
-    </span>
-    <span>
-      <img src="/icons/strikethrough.svg" alt="" width="22" height="22">
-    </span>
-    <span>
-      <img src="/icons/color.svg" alt="" width="22" height="22">
-    </span>
-  </section>
+  <header class="app-header">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg [cIcon]="icons.cilSpreadsheet"></svg>
+      </span>
+      <span class="brand-name">{{ title }}</span>
+    </div>
 
-  <app-spreadsheet (cellChange)="onCellChange($event)" />
+    <span class="divider" aria-hidden="true"></span>
+
+    <input
+      class="doc-title"
+      type="text"
+      aria-label="Spreadsheet title"
+      spellcheck="false"
+      autocomplete="off"
+      [value]="documentTitle"
+      (input)="onTitleInput($event)"
+    />
+
+    <span class="spacer"></span>
+
+    <span class="save-status" [class.dirty]="unsavedChanges">
+      {{ unsavedChanges ? 'Unsaved changes' : 'Saved locally' }}
+    </span>
+
+    <button
+      class="icon-button"
+      type="button"
+      (click)="toggleTheme()"
+      [attr.aria-label]="darkMode ? 'Switch to light theme' : 'Switch to dark theme'"
+      [title]="darkMode ? 'Switch to light theme' : 'Switch to dark theme'"
+    >
+      <svg [cIcon]="darkMode ? icons.cilSun : icons.cilMoon" aria-hidden="true"></svg>
+    </button>
+  </header>
+
+  <app-spreadsheet
+    (cellChange)="onCellChange()"
+    (sheetChange)="onSheetChange()"
+    (saved)="onSaved()"
+  />
 </div>
