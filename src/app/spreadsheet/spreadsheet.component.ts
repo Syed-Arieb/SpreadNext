@@ -19,12 +19,16 @@ import {
   cilAlignCenter,
   cilAlignLeft,
   cilAlignRight,
+  cilArrowRight,
   cilBold,
   cilCloudDownload,
+  cilDescription,
   cilItalic,
   cilPlus,
+  cilSpreadsheet,
   cilStrikethrough,
-  cilUnderline
+  cilUnderline,
+  cilX
 } from '@coreui/icons';
 import { IconDirective } from '@coreui/icons-angular';
 import { FormulaEngine } from './formula-engine';
@@ -116,12 +120,16 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     cilAlignCenter,
     cilAlignLeft,
     cilAlignRight,
+    cilArrowRight,
     cilBold,
     cilCloudDownload,
+    cilDescription,
     cilItalic,
     cilPlus,
+    cilSpreadsheet,
     cilStrikethrough,
-    cilUnderline
+    cilUnderline,
+    cilX
   };
 
   cellData: Cell[][] = [];
@@ -171,6 +179,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   @ViewChild('cellEditor') private editorRef?: ElementRef<HTMLInputElement>;
   @ViewChild('formulaInput') private formulaInputRef?: ElementRef<HTMLInputElement>;
   @ViewChild('exportFirst') private exportFirstRef?: ElementRef<HTMLButtonElement>;
+  @ViewChild('exportDialog') private exportDialogRef?: ElementRef<HTMLElement>;
   @ViewChildren('menu') private menuRefs?: QueryList<ElementRef<HTMLDetailsElement>>;
 
   private history: SheetSnapshot[] = [];
@@ -1276,7 +1285,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     this.closeMenus();
     this.hideSuggestions();
     this.exportMenuOpen = true;
-    setTimeout(() => this.exportFirstRef?.nativeElement.focus());
+    setTimeout(() => this.exportFirstRef?.nativeElement.focus({ preventScroll: true }));
   }
 
   closeExportMenu(): void {
@@ -1298,6 +1307,42 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   @HostListener('document:keydown.escape')
   closeExportMenuOnEscape(): void {
     this.closeExportMenu();
+  }
+
+  @HostListener('document:keydown', ['$event'])
+  trapExportFocus(event: KeyboardEvent): void {
+    if (!this.exportMenuOpen || event.key !== 'Tab') {
+      return;
+    }
+
+    const dialog = this.exportDialogRef?.nativeElement;
+    if (!dialog) {
+      return;
+    }
+
+    const focusable = Array.from(
+      dialog.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), ' +
+        'textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )
+    ).filter(element => element.getClientRects().length > 0);
+
+    if (focusable.length === 0) {
+      event.preventDefault();
+      return;
+    }
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const active = document.activeElement;
+
+    if (event.shiftKey && (active === first || !dialog.contains(active))) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && (active === last || !dialog.contains(active))) {
+      event.preventDefault();
+      first.focus();
+    }
   }
 
   saveAsCsv(): void {

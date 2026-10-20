@@ -327,32 +327,68 @@
   @if (exportMenuOpen) {
     <div class="export-backdrop" (pointerdown)="closeExportMenu()">
       <section
+        #exportDialog
         class="export-menu"
         role="dialog"
         aria-modal="true"
         aria-labelledby="export-title"
+        aria-describedby="export-copy"
         (pointerdown)="$event.stopPropagation()"
       >
         <header class="export-header">
-          <h2 id="export-title">Save as</h2>
+          <span class="export-heading-icon" aria-hidden="true">
+            <svg [cIcon]="icons.cilCloudDownload"></svg>
+          </span>
+          <div class="export-heading">
+            <h2 id="export-title">Export sheet</h2>
+          </div>
           <button
             type="button"
             class="export-close"
-            aria-label="Close save menu"
+            aria-label="Close export dialog"
             (click)="closeExportMenu()"
-          >&times;</button>
-        </header>
-        <p class="export-copy">
-          This sheet is already saved in your browser. Choose a format to download or print.
-        </p>
-        <div class="export-options">
-          <button #exportFirst type="button" class="export-option" (click)="saveAsCsv()">
-            <span class="export-format">CSV</span>
-            <span class="export-description">Download this sheet as a comma separated file.</span>
+          >
+            <svg [cIcon]="icons.cilX" aria-hidden="true"></svg>
           </button>
-          <button type="button" class="export-option" (click)="saveAsPdf()">
-            <span class="export-format">PDF</span>
-            <span class="export-description">Open the print dialog and save as PDF.</span>
+        </header>
+
+        <p class="export-copy" id="export-copy">
+          Download a copy or print this sheet.
+        </p>
+
+        <div class="export-options">
+          <button
+            #exportFirst
+            type="button"
+            class="export-option export-option--csv"
+            (click)="saveAsCsv()"
+          >
+            <span class="export-option-icon" aria-hidden="true">
+              <svg [cIcon]="icons.cilSpreadsheet"></svg>
+            </span>
+            <span class="export-option-body">
+              <span class="export-option-title">
+                CSV
+                <span class="export-badge">Recommended</span>
+              </span>
+              <span class="export-option-description">
+                For Excel, Sheets, or data tools.
+              </span>
+            </span>
+            <svg class="export-option-arrow" [cIcon]="icons.cilArrowRight" aria-hidden="true"></svg>
+          </button>
+
+          <button type="button" class="export-option export-option--pdf" (click)="saveAsPdf()">
+            <span class="export-option-icon" aria-hidden="true">
+              <svg [cIcon]="icons.cilDescription"></svg>
+            </span>
+            <span class="export-option-body">
+              <span class="export-option-title">PDF</span>
+              <span class="export-option-description">
+                Print or save as PDF.
+              </span>
+            </span>
+            <svg class="export-option-arrow" [cIcon]="icons.cilArrowRight" aria-hidden="true"></svg>
           </button>
         </div>
       </section>
