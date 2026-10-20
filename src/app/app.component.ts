@@ -1,11 +1,10 @@
 import { Component, HostListener, ChangeDetectionStrategy } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
 import { freeSet } from '@coreui/icons';
 import { SpreadsheetComponent } from "./spreadsheet/spreadsheet.component";
 
 @Component({
     selector: 'app-root',
-    imports: [RouterOutlet, SpreadsheetComponent],
+    imports: [SpreadsheetComponent],
     templateUrl: './app.component.html',
     changeDetection: ChangeDetectionStrategy.Eager,
     styleUrl: './app.component.css'
