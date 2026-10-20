@@ -647,6 +647,54 @@ mod tests {
     }
 
     #[test]
+    fn repairs_incomplete_formulas() {
+        let values = evaluate(&[
+            &[
+                "2",
+                "3",
+                "=SUM(A1:B1",
+                "=SUM(A1:B1))",
+                "=SUM(A1:B1,",
+                "=SUM(A1;B1)",
+            ],
+            &[
+                "hello",
+                "=UPPER(A2",
+                "=IF(A2=\"hello\",\"yes\"",
+                "=(A1+B1",
+                "=\"hello",
+                "=SUM(A1:)",
+            ],
+            &[
+                "=SUM((A1+B1)",
+                "=SUM(A1:B1)))",
+                "=1+2*3",
+                "=A1",
+                "=SUM(",
+                "=SUM(A1:B1,)",
+            ],
+            &["=1+2))", "", "", "", "", ""],
+        ]);
+
+        assert_eq!(values[0][2], "5");
+        assert_eq!(values[0][3], "5");
+        assert_eq!(values[0][4], "5");
+        assert_eq!(values[0][5], "5");
+        assert_eq!(values[1][1], "HELLO");
+        assert_eq!(values[1][2], "yes");
+        assert_eq!(values[1][3], "5");
+        assert_eq!(values[1][4], "hello");
+        assert_eq!(values[1][5], "2");
+        assert_eq!(values[2][0], "5");
+        assert_eq!(values[2][1], "5");
+        assert_eq!(values[2][2], "7");
+        assert_eq!(values[2][3], "2");
+        assert_eq!(values[2][4], "0");
+        assert_eq!(values[2][5], "5");
+        assert_eq!(values[3][0], "3");
+    }
+
+    #[test]
     fn reports_errors_and_cycles() {
         let values = evaluate(&[&["=1/0", "=A2", "=FOO(1)"], &["=B1", "", "=SQRT(-1)"]]);
 

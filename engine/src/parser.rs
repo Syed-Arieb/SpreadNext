@@ -88,6 +88,10 @@ pub fn parse_formula(input: &str) -> Result<Expr, ErrorCode> {
     let mut parser = Parser { tokens, index: 0 };
     let expression = parser.parse_comparison()?;
 
+    while parser.peek() == &Token::RParen {
+        parser.advance();
+    }
+
     if parser.peek() != &Token::Eof {
         return Err(ErrorCode::Parse);
     }
@@ -141,7 +145,7 @@ fn tokenize(input: &str) -> Result<Vec<Token>, ErrorCode> {
             let mut text = String::new();
             loop {
                 if index >= chars.len() {
-                    return Err(ErrorCode::Parse);
+                    break;
                 }
                 if chars[index] == '"' {
                     if index + 1 < chars.len() && chars[index + 1] == '"' {
@@ -169,7 +173,7 @@ fn tokenize(input: &str) -> Result<Vec<Token>, ErrorCode> {
         let token = match current {
             '(' => Token::LParen,
             ')' => Token::RParen,
-            ',' => Token::Comma,
+            ',' | ';' => Token::Comma,
             ':' => Token::Colon,
             '+' => Token::Plus,
             '-' => Token::Minus,
@@ -446,19 +450,27 @@ impl Parser {
             Token::Text(value) => Ok(Expr::Text(value)),
             Token::Ref(row, column) => {
                 let start = CellRef { row, column };
-                if self.match_token(&Token::Colon) {
-                    match self.advance() {
-                        Token::Ref(end_row, end_column) => Ok(Expr::Range(RangeRef {
-                            start,
-                            end: CellRef {
-                                row: end_row,
-                                column: end_column,
-                            },
-                        })),
-                        _ => Err(ErrorCode::Parse),
-                    }
-                } else {
-                    Ok(Expr::Ref(start))
+
+                if self.peek() != &Token::Colon {
+                    return Ok(Expr::Ref(start));
+                }
+
+                let has_end = matches!(self.tokens.get(self.index + 1), Some(Token::Ref(_, _)));
+                self.advance();
+
+                if !has_end {
+                    return Ok(Expr::Ref(start));
+                }
+
+                match self.advance() {
+                    Token::Ref(end_row, end_column) => Ok(Expr::Range(RangeRef {
+                        start,
+                        end: CellRef {
+                            row: end_row,
+                            column: end_column,
+                        },
+                    })),
+                    _ => Err(ErrorCode::Parse),
                 }
             }
             Token::Ident(name) => {
@@ -476,13 +488,30 @@ impl Parser {
                 let mut args = Vec::new();
                 if !self.match_token(&Token::RParen) {
                     loop {
+                        if self.peek() == &Token::Eof {
+                            break;
+                        }
+
                         args.push(self.parse_comparison()?);
+
                         if self.match_token(&Token::Comma) {
+                            if self.match_token(&Token::RParen) {
+                                break;
+                            }
+                            if self.peek() == &Token::Eof {
+                                break;
+                            }
                             continue;
                         }
+
                         if self.match_token(&Token::RParen) {
                             break;
                         }
+
+                        if self.peek() == &Token::Eof {
+                            break;
+                        }
+
                         return Err(ErrorCode::Parse);
                     }
                 }
@@ -491,7 +520,7 @@ impl Parser {
             }
             Token::LParen => {
                 let expression = self.parse_comparison()?;
-                if !self.match_token(&Token::RParen) {
+                if !self.match_token(&Token::RParen) && self.peek() != &Token::Eof {
                     return Err(ErrorCode::Parse);
                 }
                 Ok(expression)
