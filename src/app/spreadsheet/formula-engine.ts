@@ -6,6 +6,7 @@ interface FormulaEngineExports {
   dealloc(pointer: number, length: number): void;
   evaluate(pointer: number, length: number): void;
   export_csv(pointer: number, length: number): void;
+  export_xlsx(pointer: number, length: number): void;
   result_ptr(): number;
   result_len(): number;
 }
@@ -76,6 +77,33 @@ export class FormulaEngine {
     }
 
     return this.decoder.decode(output.subarray(1));
+  }
+
+  async exportXlsx(rows: number, columns: number, cells: string[][]): Promise<Uint8Array<ArrayBuffer>> {
+    const wasm = await this.load();
+    const input = this.encoder.encode(JSON.stringify({ rows, columns, cells }));
+    const pointer = wasm.alloc(input.length);
+
+    try {
+      new Uint8Array(wasm.memory.buffer, pointer, input.length).set(input);
+      wasm.export_xlsx(pointer, input.length);
+    } finally {
+      wasm.dealloc(pointer, input.length);
+    }
+
+    const outputPointer = wasm.result_ptr();
+    const outputLength = wasm.result_len();
+    const output = new Uint8Array(wasm.memory.buffer, outputPointer, outputLength);
+
+    if (output.length === 0) {
+      throw new Error('Formula engine returned an empty export');
+    }
+
+    if (output[0] !== 0) {
+      throw new Error(this.decoder.decode(output.subarray(1)));
+    }
+
+    return output.slice(1);
   }
 
   private load(): Promise<FormulaEngineExports> {

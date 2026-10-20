@@ -23,6 +23,7 @@ import {
   cilBold,
   cilCloudDownload,
   cilDescription,
+  cilGrid,
   cilItalic,
   cilPlus,
   cilSpreadsheet,
@@ -124,6 +125,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     cilBold,
     cilCloudDownload,
     cilDescription,
+    cilGrid,
     cilItalic,
     cilPlus,
     cilSpreadsheet,
@@ -1260,11 +1262,34 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
       content = this.fallbackCsv();
     }
 
-    const blob = new Blob([`\ufeff${content}`], { type: 'text/csv;charset=utf-8;' });
+    this.downloadFile(
+      `\ufeff${content}`,
+      'spread-next.csv',
+      'text/csv;charset=utf-8;'
+    );
+  }
+
+  async exportXlsx(): Promise<void> {
+    const cells = this.cellData.map(row => row.map(cell => cell.value));
+
+    try {
+      const content = await this.engine.exportXlsx(this.rows, this.columns, cells);
+      this.downloadFile(
+        content,
+        'spread-next.xlsx',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      );
+    } catch (error) {
+      console.error('Unable to export XLSX', error);
+    }
+  }
+
+  private downloadFile(content: BlobPart, fileName: string, type: string): void {
+    const blob = new Blob([content], { type });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'spread-next.csv';
+    link.download = fileName;
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -1348,6 +1373,11 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   saveAsCsv(): void {
     this.closeExportMenu();
     void this.exportCsv();
+  }
+
+  saveAsXlsx(): void {
+    this.closeExportMenu();
+    void this.exportXlsx();
   }
 
   saveAsPdf(): void {

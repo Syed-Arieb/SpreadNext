@@ -13,6 +13,10 @@
           <span class="menu-check">＋</span>
           New sheet
         </button>
+        <button type="button" (click)="exportXlsx(); closeMenus()">
+          <span class="menu-check">↓</span>
+          Download XLSX
+        </button>
         <button type="button" (click)="exportCsv(); closeMenus()">
           <span class="menu-check">↓</span>
           Download CSV
@@ -360,19 +364,36 @@
           <button
             #exportFirst
             type="button"
-            class="export-option export-option--csv"
-            (click)="saveAsCsv()"
+            class="export-option export-option--xlsx"
+            (click)="saveAsXlsx()"
           >
             <span class="export-option-icon" aria-hidden="true">
               <svg [cIcon]="icons.cilSpreadsheet"></svg>
             </span>
             <span class="export-option-body">
               <span class="export-option-title">
-                CSV
+                XLSX
                 <span class="export-badge">Recommended</span>
               </span>
               <span class="export-option-description">
-                For Excel, Sheets, or data tools.
+                Excel workbook with cell values.
+              </span>
+            </span>
+            <svg class="export-option-arrow" [cIcon]="icons.cilArrowRight" aria-hidden="true"></svg>
+          </button>
+
+          <button
+            type="button"
+            class="export-option export-option--csv"
+            (click)="saveAsCsv()"
+          >
+            <span class="export-option-icon" aria-hidden="true">
+              <svg [cIcon]="icons.cilGrid"></svg>
+            </span>
+            <span class="export-option-body">
+              <span class="export-option-title">CSV</span>
+              <span class="export-option-description">
+                Plain text for any data tool.
               </span>
             </span>
             <svg class="export-option-arrow" [cIcon]="icons.cilArrowRight" aria-hidden="true"></svg>

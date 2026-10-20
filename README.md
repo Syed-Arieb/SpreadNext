@@ -1,6 +1,6 @@
 # SpreadNext
 
-SpreadNext is a spreadsheet web app built with Angular and Rust. It has an editable grid, formulas, cell styling, range selection, undo and redo, autosave, and CSV export.
+SpreadNext is a spreadsheet web app built with Angular and Rust. It has an editable grid, formulas, cell styling, range selection, undo and redo, autosave, and CSV and XLSX export.
 
 ![SpreadNext Screenshot](https://github.com/user-attachments/assets/f14183e9-b087-46f6-bae9-dd3db116e028)
 
@@ -14,7 +14,7 @@ SpreadNext is a spreadsheet web app built with Angular and Rust. It has an edita
 - Resizable columns and fixed row heights
 - Undo, redo, and autosave in the browser
 - Dark and light themes
-- CSV export and print
+- CSV and XLSX export, plus print
 - Gridline and compact row options
 
 ## Requirements
@@ -54,7 +54,7 @@ npm test
 
 ## Formula Engine
 
-The prebuilt engine is in `public/formula-engine.wasm`. Formula evaluation and CSV export run in the Rust engine. You only need Rust to change the engine source in `engine/`.
+The prebuilt engine is in `public/formula-engine.wasm`. Formula evaluation, CSV export, and XLSX export run in the Rust engine. You only need Rust to change the engine source in `engine/`.
 
 ```bash
 rustup target add wasm32-unknown-unknown
