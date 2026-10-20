@@ -29,6 +29,7 @@ import {
 import { IconDirective } from '@coreui/icons-angular';
 import { FormulaEngine } from './formula-engine';
 import { FORMULA_FUNCTIONS, FormulaFunction } from './formula-functions';
+import { normalizeFormula } from './formula-text';
 
 export type CellAlign = 'left' | 'center' | 'right';
 
@@ -475,7 +476,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     }
 
     const cell = this.cellAt(editing.row, editing.column);
-    const value = this.draftValue;
+    const value = normalizeFormula(this.draftValue);
     this.editingCell = null;
     this.draftValue = '';
     this.formulaSource = null;
@@ -1177,13 +1178,14 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     }
 
     const cell = this.activeCellData;
+    const value = normalizeFormula(this.formulaValue);
     this.selectionAnchor = { ...this.activeCell };
-    if (cell.value !== this.formulaValue) {
-      cell.value = this.formulaValue;
+    if (cell.value !== value) {
+      cell.value = value;
       this.cellChange.emit({
         row: this.activeCell.row,
         column: this.activeCell.column,
-        value: this.formulaValue
+        value
       });
       this.pushHistory();
     }
