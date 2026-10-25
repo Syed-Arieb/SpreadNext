@@ -441,6 +441,33 @@
     </table>
   </div>
 
+  <div class="sheet-tabs" role="tablist">
+    @for (workbook of workbooks; track workbook.id; let i = $index) {
+      <button
+        type="button"
+        class="sheet-tab"
+        [class.is-active]="activeWorkbookIndex === i"
+        [attr.aria-controls]="'sheet-' + workbook.id"
+        (click)="activeWorkbookIndex = i"
+        (keydown)="($event.key === 'Enter' || $event.key === ' ') && activeWorkbookIndex !== i ? activeWorkbookIndex = i : null"
+      >
+        <span class="sheet-tab-name">{{ workbook.name }}</span>
+        @if (workbooks.length > 1) {
+          <span class="sheet-tab-close" (click)="removeWorkbook(workbook.id); $event.stopPropagation()">×</span>
+        }
+      </button>
+    }
+    <button
+      type="button"
+      class="sheet-tab sheet-tab--new"
+      (click)="confirmNewSheet()"
+      (keydown)="$event.key === 'Enter' && confirmNewSheet()"
+      aria-label="Add new workbook"
+    >
+      <ng-icon name="lucidePlus" aria-hidden="true"></ng-icon>
+    </button>
+  </div>
+
   <footer class="statusbar" aria-live="polite">
     <span class="status-address">{{ selectionLabel }}</span>
     @if (selectedCellCount > 1) {

@@ -81,6 +81,12 @@ interface SheetSnapshot {
   columnWidths: number[];
 }
 
+interface Workbook {
+  id: string;
+  name: string;
+  snapshot: SheetSnapshot;
+}
+
 interface ClipboardCells {
   values: string[][];
   display: string[][];
@@ -99,7 +105,13 @@ const MIN_COLUMN_WIDTH = 56;
 const MAX_COLUMN_WIDTH = 480;
 const ROW_HEADER_WIDTH = 48;
 const MAX_HISTORY = 100;
-const STORAGE_KEY = 'spreadnext-sheet';
+interface Workbook {
+  id: string;
+  name: string;
+  snapshot: SheetSnapshot;
+}
+
+const STORAGE_KEY = 'spreadnext-workbooks';
 const REFERENCE_COLORS = ['#3b82f6', '#ef4444', '#10b981', '#a855f7', '#f59e0b', '#06b6d4'];
 
 const DEFAULT_BORDER_COLOR = '#64748b';
@@ -147,6 +159,9 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   @Output() sheetChange = new EventEmitter<void>();
   @Output() saved = new EventEmitter<void>();
   @Output() titleReset = new EventEmitter<void>();
+
+  activeWorkbookIndex = 0;
+  workbooks: Workbook[] = [];
 
   readonly fillColors = FILL_COLORS;
   readonly borderLineStyles: { value: BorderLineStyle; label: string }[] = [
@@ -267,9 +282,22 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     if (!this.restore()) {
-      this.rows = Math.max(1, this.rows);
-      this.columns = Math.max(1, this.columns);
-      this.cellData = this.createCells(this.rows, this.columns);
+      this.workbooks = [{
+        id: crypto.randomUUID(),
+        name: 'Sheet1',
+        snapshot: {
+          rows: DEFAULT_ROWS,
+          columns: DEFAULT_COLUMNS,
+          cells: this.createCells(DEFAULT_ROWS, DEFAULT_COLUMNS).map(row =>
+            row.map(cell => ({
+              value: cell.value,
+              style: cloneCellStyle(cell.style)
+            }))
+          ),
+          columnWidths: Array(DEFAULT_COLUMNS).fill(DEFAULT_COLUMN_WIDTH)
+        }
+      }];
+      this.activeWorkbookIndex = 0;
     }
 
     this.rebuildIndices();
@@ -277,7 +305,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     this.activeCell = { row: 0, column: 0 };
     this.formulaValue = this.cellAt(0, 0).value;
     this.resetDisplayValues();
-    this.history = [this.takeSnapshot()];
+    this.history = [this.workbooks[this.activeWorkbookIndex].snapshot];
     this.historyIndex = 0;
     this.updateHistoryFlags();
     this.scheduleRecalculate();
@@ -1774,18 +1802,77 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     this.confirmNewSheetOpen = false;
     this.newSheetReturnFocus = null;
     this.commitEdit('none', false);
+    
+    // Add a new workbook (like a new sheet tab in Excel)
+    const newWorkbook: Workbook = {
+      id: crypto.randomUUID(),
+      name: `Sheet${this.workbooks.length + 1}`,
+      snapshot: {
+        rows: DEFAULT_ROWS,
+        columns: DEFAULT_COLUMNS,
+        cells: this.createCells(DEFAULT_ROWS, DEFAULT_COLUMNS).map(row =>
+          row.map(cell => ({
+            value: cell.value,
+            style: cloneCellStyle(cell.style)
+          }))
+        ),
+        columnWidths: Array(DEFAULT_COLUMNS).fill(DEFAULT_COLUMN_WIDTH)
+      }
+    };
+    
+    this.workbooks.push(newWorkbook);
+    this.activeWorkbookIndex = this.workbooks.length - 1;
     this.rows = DEFAULT_ROWS;
     this.columns = DEFAULT_COLUMNS;
-    this.cellData = this.createCells(this.rows, this.columns);
-    this.columnWidths = this.normalizeColumnWidths([], this.columns);
+    this.cellData = newWorkbook.snapshot.cells.map(row => row.map(cell => ({
+      value: cell.value,
+      style: cloneCellStyle(cell.style)
+    })));
+    this.columnWidths = this.normalizeColumnWidths(newWorkbook.snapshot.columnWidths, this.columns);
     this.rebuildIndices();
     this.activeCell = { row: 0, column: 0 };
     this.selectionAnchor = { row: 0, column: 0 };
     this.formulaValue = '';
     this.resetDisplayValues();
     this.pushHistory();
+    this.sheetChange.emit();
     this.titleReset.emit();
     this.focusGrid();
+  }
+
+  removeWorkbook(id: string): void {
+    if (this.workbooks.length <= 1) {
+      return;
+    }
+
+    const index = this.workbooks.findIndex(w => w.id === id);
+    if (index === -1) {
+      return;
+    }
+
+    // If removing active workbook, switch to previous one
+    if (this.activeWorkbookIndex === index) {
+      this.activeWorkbookIndex = Math.max(0, this.activeWorkbookIndex - 1);
+    }
+
+    this.workbooks = this.workbooks.filter(w => w.id !== id);
+    
+    // Switch to the remaining workbook
+    const workbook = this.workbooks[this.activeWorkbookIndex];
+    this.rows = workbook.snapshot.rows;
+    this.columns = workbook.snapshot.columns;
+    this.cellData = workbook.snapshot.cells.map(row => row.map(cell => ({
+      value: cell.value,
+      style: cloneCellStyle(cell.style)
+    })));
+    this.columnWidths = this.normalizeColumnWidths(workbook.snapshot.columnWidths, this.columns);
+    this.rebuildIndices();
+    this.activeCell = { row: 0, column: 0 };
+    this.selectionAnchor = { ...this.activeCell };
+    this.formulaValue = this.activeCellData.value;
+    this.resetDisplayValues();
+    this.pushHistory();
+    this.sheetChange.emit();
   }
 
   async exportCsv(): Promise<void> {
@@ -2007,6 +2094,10 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
 
     this.historyIndex = this.history.length - 1;
     this.updateHistoryFlags();
+    
+    // Sync the active workbook's snapshot
+    this.workbooks[this.activeWorkbookIndex].snapshot = this.takeSnapshot();
+    
     this.sheetChange.emit();
     this.scheduleSave();
     this.scheduleRecalculate();
@@ -2018,15 +2109,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   }
 
   private takeSnapshot(): SheetSnapshot {
-    return {
-      rows: this.rows,
-      columns: this.columns,
-      cells: this.cellData.map(row => row.map(cell => ({
-        value: cell.value,
-        style: cloneCellStyle(cell.style)
-      }))),
-      columnWidths: [...this.columnWidths]
-    };
+    return this.workbooks[this.activeWorkbookIndex].snapshot;
   }
 
   private restoreSnapshot(snapshot: SheetSnapshot): void {
@@ -2098,25 +2181,36 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
         return false;
       }
 
-      const data = JSON.parse(raw) as Partial<SheetSnapshot>;
+      const data = JSON.parse(raw) as { workbooks: Workbook[]; activeIndex: number };
       if (
-        !Number.isInteger(data.rows) ||
-        !Number.isInteger(data.columns) ||
-        (data.rows ?? 0) < 1 ||
-        (data.columns ?? 0) < 1 ||
-        !Array.isArray(data.cells)
+        !Array.isArray(data.workbooks) ||
+        data.workbooks.length === 0 ||
+        !Number.isInteger(data.activeIndex) ||
+        data.activeIndex < 0 ||
+        data.activeIndex >= data.workbooks.length
       ) {
         return false;
       }
 
-      this.rows = Math.min(500, data.rows as number);
-      this.columns = Math.min(100, data.columns as number);
-      this.cellData = Array.from({ length: this.rows }, (_, row) =>
-        Array.from({ length: this.columns }, (_, column) =>
-          this.normalizeCell(data.cells?.[row]?.[column])
-        )
-      );
-      this.columnWidths = this.normalizeColumnWidths(data.columnWidths, this.columns);
+      this.workbooks = data.workbooks;
+      this.activeWorkbookIndex = data.activeIndex;
+      
+      const workbook = this.workbooks[this.activeWorkbookIndex];
+      this.rows = workbook.snapshot.rows;
+      this.columns = workbook.snapshot.columns;
+      this.cellData = workbook.snapshot.cells.map(row => row.map(cell => ({
+        value: cell.value,
+        style: cloneCellStyle(cell.style)
+      })));
+      this.columnWidths = this.normalizeColumnWidths(workbook.snapshot.columnWidths, this.columns);
+      this.rebuildIndices();
+      this.activeCell = {
+        row: this.clamp(this.activeCell.row, 0, this.rows - 1),
+        column: this.clamp(this.activeCell.column, 0, this.columns - 1)
+      };
+      this.selectionAnchor = { ...this.activeCell };
+      this.formulaValue = this.activeCellData.value;
+      this.resetDisplayValues();
       return true;
     } catch {
       return false;
@@ -2136,7 +2230,25 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
 
   private persist(): void {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.takeSnapshot()));
+      const data = {
+        workbooks: this.workbooks.map(w => ({
+          id: w.id,
+          name: w.name,
+          snapshot: {
+            rows: w.snapshot.rows,
+            columns: w.snapshot.columns,
+            cells: w.snapshot.cells.map(row =>
+              row.map(cell => ({
+                value: cell.value,
+                style: cloneCellStyle(cell.style)
+              }))
+            ),
+            columnWidths: [...w.snapshot.columnWidths]
+          }
+        })),
+        activeIndex: this.activeWorkbookIndex
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
       this.saved.emit();
     } catch {
       return;

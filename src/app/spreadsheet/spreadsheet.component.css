@@ -741,6 +741,103 @@
   flex: 1;
 }
 
+.sheet-tabs {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 2px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+  padding: 2px;
+}
+
+.sheet-tab {
+  flex: 1;
+  min-width: 80px;
+  height: 28px;
+  padding: 0 8px;
+  background: transparent;
+  border: none;
+  border-radius: 6px 6px 0 0;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: background 0.12s, color 0.12s;
+  position: relative;
+}
+
+.sheet-tab:hover:not(.is-active) {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.sheet-tab.is-active {
+  background: var(--surface);
+  color: var(--text);
+  border-bottom: 2px solid var(--accent);
+}
+
+.sheet-tab .sheet-tab-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheet-tab .sheet-tab-close {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 12px;
+  height: 12px;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.sheet-tab:hover .sheet-tab-close {
+  opacity: 0.6;
+}
+
+.sheet-tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.sheet-tab--new {
+  min-width: 28px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  transition: color 0.12s;
+}
+
+.sheet-tab--new:hover {
+  color: var(--text);
+  background: var(--surface-2);
+  border-radius: 6px 6px 0 0;
+}
+
+.sheet-tab--new:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (max-width: 520px) {
+  .sheet-tab {
+    min-width: 60px;
+    font-size: 9px;
+    padding: 0 4px;
+  }
+}
+
 .formula-suggest {
   position: fixed;
   z-index: 100;
