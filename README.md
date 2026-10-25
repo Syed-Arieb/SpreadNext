@@ -52,6 +52,18 @@ The production files are written to `dist/spread-next`.
 npm test
 ```
 
+## Deploy
+
+The app is hosted on Firebase Hosting.
+
+```bash
+npm run deploy
+```
+
+This runs the production build and deploys the output in `dist/spread-next/browser` to Firebase Hosting via the Firebase CLI. The Hosting site is configured in `firebase.json` and the Firebase project in `.firebaserc`.
+
+Deployment is also automated with GitHub Actions: every push to `master` that changes app source (see `.github/workflows/firebase-deploy.yml`) runs the build and deploys to Firebase Hosting. The workflow uses the `FIREBASE_SERVICE_ACCOUNT` repository secret, which you can create with `firebase init hosting:github` or by generating a service account key with Hosting deploy permissions.
+
 ## Formula Engine
 
 The prebuilt engine is in `public/formula-engine.wasm`. Formula evaluation, CSV export, and XLSX export run in the Rust engine. You only need Rust to change the engine source in `engine/`.

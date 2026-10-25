@@ -1,0 +1,47 @@
+name: Deploy to Firebase Hosting
+
+# https://github.com/FirebaseExtended/action-hosting-deploy
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - "src/**"
+      - "public/**"
+      - "angular.json"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+      - "tsconfig.app.json"
+      - "tsconfig.spec.json"
+      - "scripts/**"
+      - "firebase.json"
+      - ".firebaserc"
+  workflow_dispatch:
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          channelId: live
+          projectId: spreadnext-syed-arieb
