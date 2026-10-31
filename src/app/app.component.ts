@@ -70,7 +70,9 @@ export class AppComponent {
     this.documentTitle = 'Untitled spreadsheet';
     this.unsavedChanges = true;
     this.updateDocumentTitle();
-    this.persistTitle();
+    if (this.persistTitle()) {
+      this.unsavedChanges = false;
+    }
   }
 
   onCellChange(): void {

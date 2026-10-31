@@ -522,6 +522,13 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
 
   selectCell(row: number, column: number, extend = false): void {
     this.commitEdit('none', false);
+
+    const merge = this.mergedAt(row, column);
+    if (merge) {
+      row = merge.row;
+      column = merge.column;
+    }
+
     this.activeCell = this.clampSelection(row, column);
     if (!extend) {
       this.selectionAnchor = { ...this.activeCell };
@@ -781,6 +788,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
       cell.value = value;
       this.cellChange.emit({ row: editing.row, column: editing.column, value });
       this.pushHistory();
+      this.resetDisplayValues();
     }
 
     this.formulaValue = cell.value;
@@ -1875,6 +1883,9 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     }
 
     this.commitEdit('none', false);
+    if (this.historyIndex >= this.history.length - 1) {
+      return;
+    }
     this.historyIndex += 1;
     this.restoreSnapshot(this.history[this.historyIndex]);
     this.workbooks[this.activeWorkbookIndex].snapshot = this.currentSnapshot();
@@ -2234,6 +2245,15 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
 
     this.closeMenus();
     this.hideSuggestions();
+
+    const overlappingMerges = this.mergedCells.filter(merge => this.rangesIntersect(merge, range));
+    const topLeftCell = this.cellAt(range.row, range.column);
+    if (!topLeftCell.value.trim()) {
+      const preservedValue = overlappingMerges.map(merge => this.cellAt(merge.row, merge.column).value).find(value => value.trim() !== '');
+      if (preservedValue) {
+        topLeftCell.value = preservedValue;
+      }
+    }
 
     this.mergedCells = this.mergedCells.filter(merge => !this.rangesIntersect(merge, range));
 
@@ -2980,6 +3000,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
         value
       });
       this.pushHistory();
+      this.resetDisplayValues();
     }
 
     this.hideSuggestions();
@@ -3010,8 +3031,9 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   }
 
   private pushHistory(): void {
+    const snapshot = this.takeSnapshot();
     this.history = this.history.slice(0, this.historyIndex + 1);
-    this.history.push(this.takeSnapshot());
+    this.history.push(snapshot);
 
     if (this.history.length > MAX_HISTORY) {
       this.history.shift();
@@ -3021,7 +3043,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     this.updateHistoryFlags();
     
     // Sync the active workbook's snapshot
-    this.workbooks[this.activeWorkbookIndex].snapshot = this.takeSnapshot();
+    this.workbooks[this.activeWorkbookIndex].snapshot = snapshot;
     
     this.sheetChange.emit();
     this.scheduleSave();
@@ -3183,6 +3205,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
       this.saveStatus = 'saved';
       this.saved.emit();
     } catch {
+      this.saveStatus = 'saving';
       return;
     }
   }
