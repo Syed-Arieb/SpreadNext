@@ -150,7 +150,7 @@ function contrastTextColor(background: string | null): string | null {
   selector: 'app-spreadsheet',
   imports: [NgIcon, BorderIconComponent],
   templateUrl: './spreadsheet.component.html',
-  styleUrl: './spreadsheet.component.css',
+  styleUrls: ['./spreadsheet.component.css', './spreadsheet.component.more.css'],
   changeDetection: ChangeDetectionStrategy.Eager
 })
 export class SpreadsheetComponent implements OnInit, OnDestroy {
