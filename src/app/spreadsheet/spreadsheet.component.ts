@@ -207,7 +207,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   resizingColumn: number | null = null;
   selecting = false;
   exportMenuOpen = false;
-  confirmNewSheetOpen = false;
+  confirmNewWorkbookOpen = false;
   confirmDeleteSheetOpen = false;
   pendingDeleteWorkbookId: string | null = null;
   pendingDeleteWorkbookName = '';
@@ -1397,7 +1397,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   }
 
   openFillDialog(): void {
-    if (this.fillDialogOpen || this.borderDialogOpen || this.confirmNewSheetOpen || this.exportMenuOpen) {
+    if (this.fillDialogOpen || this.borderDialogOpen || this.confirmNewWorkbookOpen || this.exportMenuOpen) {
       return;
     }
 
@@ -1450,7 +1450,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   }
 
   openBorderDialog(): void {
-    if (this.fillDialogOpen || this.borderDialogOpen || this.confirmNewSheetOpen || this.exportMenuOpen) {
+    if (this.fillDialogOpen || this.borderDialogOpen || this.confirmNewWorkbookOpen || this.exportMenuOpen) {
       return;
     }
 
@@ -1778,8 +1778,8 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     this.focusGrid();
   }
 
-  requestNewSheet(): void {
-    if (this.confirmNewSheetOpen || this.exportMenuOpen) {
+  requestNewWorkbook(): void {
+    if (this.confirmNewWorkbookOpen || this.exportMenuOpen) {
       return;
     }
 
@@ -1793,16 +1793,16 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
 
     this.closeMenus();
     this.hideSuggestions();
-    this.confirmNewSheetOpen = true;
+    this.confirmNewWorkbookOpen = true;
     setTimeout(() => this.newSheetCancelRef?.nativeElement.focus({ preventScroll: true }));
   }
 
   cancelNewSheet(): void {
-    if (!this.confirmNewSheetOpen) {
+    if (!this.confirmNewWorkbookOpen) {
       return;
     }
 
-    this.confirmNewSheetOpen = false;
+    this.confirmNewWorkbookOpen = false;
     const target = this.newSheetReturnFocus;
     this.newSheetReturnFocus = null;
 
@@ -1813,20 +1813,70 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     }
   }
 
-  confirmNewSheet(): void {
-    if (!this.confirmNewSheetOpen) {
+  confirmNewWorkbook(): void {
+    if (!this.confirmNewWorkbookOpen) {
       return;
     }
 
-    this.confirmNewSheetOpen = false;
+    this.confirmNewWorkbookOpen = false;
     this.newSheetReturnFocus = null;
+    this.commitRename();
     this.commitEdit('none', false);
 
     if (this.formulaSource === 'formula') {
       this.commitFormula();
     }
 
-    this.addWorkbook();
+    this.closeMenus();
+    this.hideSuggestions();
+
+    const freshWorkbook: Workbook = {
+      id: crypto.randomUUID(),
+      name: 'Sheet1',
+      snapshot: {
+        rows: DEFAULT_ROWS,
+        columns: DEFAULT_COLUMNS,
+        cells: this.createCells(DEFAULT_ROWS, DEFAULT_COLUMNS).map(row =>
+          row.map(cell => ({
+            value: cell.value,
+            style: cloneCellStyle(cell.style)
+          }))
+        ),
+        columnWidths: Array(DEFAULT_COLUMNS).fill(DEFAULT_COLUMN_WIDTH)
+      }
+    };
+
+    this.workbooks = [freshWorkbook];
+    this.activeWorkbookIndex = 0;
+    this.rows = DEFAULT_ROWS;
+    this.columns = DEFAULT_COLUMNS;
+    this.cellData = freshWorkbook.snapshot.cells.map(row => row.map(cell => ({
+      value: cell.value,
+      style: cloneCellStyle(cell.style)
+    })));
+    this.columnWidths = this.normalizeColumnWidths(freshWorkbook.snapshot.columnWidths, this.columns);
+    this.rebuildIndices();
+    this.activeCell = { row: 0, column: 0 };
+    this.selectionAnchor = { row: 0, column: 0 };
+    this.formulaValue = '';
+    this.resetDisplayValues();
+    this.history = [this.currentSnapshot()];
+    this.historyIndex = 0;
+    this.updateHistoryFlags();
+    this.workbooks[this.activeWorkbookIndex].snapshot = this.currentSnapshot();
+    this.sheetChange.emit();
+    this.titleReset.emit();
+    this.scheduleSave();
+    this.scheduleRecalculate();
+    this.focusGrid();
+  }
+
+  requestNewSheet(): void {
+    this.requestNewWorkbook();
+  }
+
+  confirmNewSheet(): void {
+    this.confirmNewWorkbook();
   }
 
   addWorkbook(): void {
@@ -2473,7 +2523,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   }
 
   openExportMenu(): void {
-    if (this.confirmNewSheetOpen) {
+    if (this.confirmNewWorkbookOpen) {
       return;
     }
 
@@ -2509,7 +2559,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
 
   @HostListener('document:keydown.escape')
   closeDialogOnEscape(): void {
-    if (this.confirmNewSheetOpen) {
+    if (this.confirmNewWorkbookOpen) {
       this.cancelNewSheet();
       return;
     }
@@ -2536,7 +2586,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
 
     let dialog: HTMLElement | undefined;
 
-    if (this.confirmNewSheetOpen) {
+    if (this.confirmNewWorkbookOpen) {
       dialog = this.newSheetDialogRef?.nativeElement;
     } else if (this.exportMenuOpen) {
       dialog = this.exportDialogRef?.nativeElement;

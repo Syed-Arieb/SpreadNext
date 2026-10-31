@@ -13,7 +13,7 @@
         <button type="button" (click)="requestNewSheet()">
           <span class="menu-icon" aria-hidden="true"><ng-icon name="lucidePlus"></ng-icon></span>
           <span class="menu-check" aria-hidden="true"></span>
-          New sheet
+          New workbook
           <kbd>Shift F11</kbd>
         </button>
         <button type="button" (click)="exportXlsx(); closeMenus()">
@@ -641,7 +641,7 @@
     </div>
   }
 
-  @if (confirmNewSheetOpen) {
+  @if (confirmNewWorkbookOpen) {
     <div class="export-backdrop" (pointerdown)="cancelNewSheet()">
       <section
         #newSheetDialog
@@ -657,12 +657,12 @@
             <ng-icon name="lucidePlus"></ng-icon>
           </span>
           <div class="export-heading">
-            <h2 id="new-sheet-title">New sheet?</h2>
+            <h2 id="new-sheet-title">New workbook?</h2>
           </div>
         </header>
 
         <p class="confirm-copy" id="new-sheet-copy">
-          This clears the current sheet. You can undo it.
+          This clears all sheets. You can undo it.
         </p>
 
         <div class="confirm-actions">
@@ -677,9 +677,9 @@
           <button
             type="button"
             class="confirm-button confirm-button--primary"
-            (click)="confirmNewSheet()"
+            (click)="confirmNewWorkbook()"
           >
-            New sheet
+            New workbook
           </button>
         </div>
       </section>
