@@ -784,18 +784,25 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     this.referenceInsertion = null;
     this.hideSuggestions();
 
-    if (cell.value !== value) {
+    const changed = cell.value !== value;
+
+    if (changed) {
       cell.value = value;
       this.cellChange.emit({ row: editing.row, column: editing.column, value });
-      this.pushHistory();
-      this.resetDisplayValues();
     }
 
     this.formulaValue = cell.value;
 
     if (move !== 'none') {
       this.moveSelection(move);
-    } else if (focus) {
+    }
+
+    if (changed) {
+      this.resetDisplayValues();
+      this.pushHistory();
+    }
+
+    if (move === 'none' && focus) {
       this.focusGrid();
     }
   }
