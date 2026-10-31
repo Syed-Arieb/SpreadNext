@@ -218,6 +218,12 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   pendingDeleteWorkbookName = '';
   renamingWorkbookId: string | null = null;
   renameValue = '';
+  sheetTabContextMenuOpen = false;
+  sheetTabContextMenuTargetId: string | null = null;
+  sheetTabContextMenuX = 0;
+  sheetTabContextMenuY = 0;
+  draggedWorkbookIndex: number | null = null;
+  dragOverWorkbookIndex: number | null = null;
   fillDialogOpen = false;
   borderDialogOpen = false;
   contextMenuOpen = false;
@@ -2127,6 +2133,255 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     this.scheduleSave();
     this.scheduleRecalculate();
     this.focusGrid();
+  }
+
+  moveWorkbook(id: string, delta: number): void {
+    const index = this.workbooks.findIndex(item => item.id === id);
+    if (index === -1) {
+      return;
+    }
+
+    const target = index + delta;
+    if (target < 0 || target >= this.workbooks.length) {
+      return;
+    }
+
+    this.commitEdit('none', false);
+
+    if (this.formulaSource === 'formula') {
+      this.commitFormula();
+    }
+
+    const activeId = this.workbooks[this.activeWorkbookIndex]?.id;
+    this.workbooks[this.activeWorkbookIndex].snapshot = this.currentSnapshot();
+
+    const [moved] = this.workbooks.splice(index, 1);
+    this.workbooks.splice(target, 0, moved);
+
+    const newActiveIndex = this.workbooks.findIndex(item => item.id === activeId);
+    this.activeWorkbookIndex = newActiveIndex >= 0 ? newActiveIndex : this.activeWorkbookIndex;
+
+    const workbook = this.workbooks[this.activeWorkbookIndex];
+    this.rows = workbook.snapshot.rows;
+    this.columns = workbook.snapshot.columns;
+    this.cellData = workbook.snapshot.cells.map(row => row.map(cell => ({
+      value: cell.value,
+      style: cloneCellStyle(cell.style)
+    })));
+    this.columnWidths = this.normalizeColumnWidths(workbook.snapshot.columnWidths, this.columns);
+    this.rebuildIndices();
+    this.activeCell = { row: 0, column: 0 };
+    this.selectionAnchor = { row: 0, column: 0 };
+    this.formulaValue = this.cellAt(0, 0).value;
+    this.resetDisplayValues();
+    this.history = [this.currentSnapshot()];
+    this.historyIndex = 0;
+    this.updateHistoryFlags();
+    this.workbooks[this.activeWorkbookIndex].snapshot = this.currentSnapshot();
+    this.sheetChange.emit();
+    this.scheduleSave();
+    this.scheduleRecalculate();
+    this.focusGrid();
+  }
+
+  onSheetTabContextMenu(event: MouseEvent, id: string): void {
+    event.preventDefault();
+    event.stopPropagation();
+
+    this.commitEdit('none', false);
+
+    if (this.formulaSource === 'formula') {
+      this.commitFormula();
+    }
+
+    this.sheetTabContextMenuTargetId = id;
+    this.sheetTabContextMenuX = event.clientX;
+    this.sheetTabContextMenuY = event.clientY;
+    this.sheetTabContextMenuOpen = true;
+  }
+
+  closeSheetTabContextMenu(): void {
+    this.sheetTabContextMenuOpen = false;
+    this.sheetTabContextMenuTargetId = null;
+  }
+
+  sheetTabContextRename(): void {
+    const id = this.sheetTabContextMenuTargetId;
+    this.closeSheetTabContextMenu();
+
+    if (!id) {
+      return;
+    }
+
+    const workbook = this.workbooks.find(item => item.id === id);
+    if (workbook) {
+      this.startRename(workbook);
+    }
+  }
+
+  sheetTabContextDuplicate(): void {
+    const id = this.sheetTabContextMenuTargetId;
+    this.closeSheetTabContextMenu();
+
+    if (id) {
+      this.duplicateWorkbook(id);
+    }
+  }
+
+  sheetTabContextDelete(): void {
+    const id = this.sheetTabContextMenuTargetId;
+    this.closeSheetTabContextMenu();
+
+    if (id) {
+      this.requestRemoveWorkbook(id);
+    }
+  }
+
+  sheetTabContextMoveLeft(): void {
+    const id = this.sheetTabContextMenuTargetId;
+    this.closeSheetTabContextMenu();
+
+    if (id) {
+      this.moveWorkbook(id, -1);
+    }
+  }
+
+  sheetTabContextMoveRight(): void {
+    const id = this.sheetTabContextMenuTargetId;
+    this.closeSheetTabContextMenu();
+
+    if (id) {
+      this.moveWorkbook(id, 1);
+    }
+  }
+
+  onWorkbookDragStart(event: DragEvent, index: number): void {
+    if (this.renamingWorkbookId) {
+      event.preventDefault();
+      return;
+    }
+
+    this.draggedWorkbookIndex = index;
+    this.dragOverWorkbookIndex = null;
+
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', String(index));
+    }
+  }
+
+  onWorkbookDragOver(event: DragEvent, index: number): void {
+    if (this.draggedWorkbookIndex === null || this.draggedWorkbookIndex === index) {
+      return;
+    }
+
+    event.preventDefault();
+
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'move';
+    }
+
+    this.dragOverWorkbookIndex = index;
+  }
+
+  onWorkbookDragLeave(index: number): void {
+    if (this.dragOverWorkbookIndex === index) {
+      this.dragOverWorkbookIndex = null;
+    }
+  }
+
+  onWorkbookDrop(event: DragEvent, targetIndex: number): void {
+    event.preventDefault();
+
+    const draggedIndex = this.draggedWorkbookIndex;
+    if (draggedIndex === null || draggedIndex === targetIndex) {
+      this.draggedWorkbookIndex = null;
+      this.dragOverWorkbookIndex = null;
+      return;
+    }
+
+    this.commitEdit('none', false);
+
+    if (this.formulaSource === 'formula') {
+      this.commitFormula();
+    }
+
+    const activeId = this.workbooks[this.activeWorkbookIndex]?.id;
+    this.workbooks[this.activeWorkbookIndex].snapshot = this.currentSnapshot();
+
+    let to = targetIndex;
+    if (draggedIndex < to) {
+      to -= 1;
+    }
+
+    const [moved] = this.workbooks.splice(draggedIndex, 1);
+    this.workbooks.splice(to, 0, moved);
+
+    const newActiveIndex = this.workbooks.findIndex(item => item.id === activeId);
+    this.activeWorkbookIndex = newActiveIndex >= 0 ? newActiveIndex : this.activeWorkbookIndex;
+
+    const workbook = this.workbooks[this.activeWorkbookIndex];
+    this.rows = workbook.snapshot.rows;
+    this.columns = workbook.snapshot.columns;
+    this.cellData = workbook.snapshot.cells.map(row => row.map(cell => ({
+      value: cell.value,
+      style: cloneCellStyle(cell.style)
+    })));
+    this.columnWidths = this.normalizeColumnWidths(workbook.snapshot.columnWidths, this.columns);
+    this.rebuildIndices();
+    this.activeCell = { row: 0, column: 0 };
+    this.selectionAnchor = { row: 0, column: 0 };
+    this.formulaValue = this.cellAt(0, 0).value;
+    this.resetDisplayValues();
+    this.history = [this.currentSnapshot()];
+    this.historyIndex = 0;
+    this.updateHistoryFlags();
+    this.workbooks[this.activeWorkbookIndex].snapshot = this.currentSnapshot();
+    this.sheetChange.emit();
+    this.scheduleSave();
+    this.scheduleRecalculate();
+    this.focusGrid();
+
+    this.draggedWorkbookIndex = null;
+    this.dragOverWorkbookIndex = null;
+  }
+
+  onWorkbookDragEnd(): void {
+    this.draggedWorkbookIndex = null;
+    this.dragOverWorkbookIndex = null;
+  }
+
+  onSheetTabsKeydown(event: KeyboardEvent): void {
+    const tabs = Array.from(document.querySelectorAll('.sheet-tab:not(.sheet-tab--new)')) as HTMLElement[];
+    if (tabs.length === 0) {
+      return;
+    }
+
+    const currentIndex = tabs.indexOf(document.activeElement as HTMLElement);
+    let nextIndex = currentIndex;
+
+    switch (event.key) {
+      case 'ArrowLeft':
+      case 'ArrowUp':
+        nextIndex = currentIndex <= 0 ? tabs.length - 1 : currentIndex - 1;
+        break;
+      case 'ArrowRight':
+      case 'ArrowDown':
+        nextIndex = currentIndex >= tabs.length - 1 ? 0 : currentIndex + 1;
+        break;
+      case 'Home':
+        nextIndex = 0;
+        break;
+      case 'End':
+        nextIndex = tabs.length - 1;
+        break;
+      default:
+        return;
+    }
+
+    event.preventDefault();
+    tabs[nextIndex]?.focus();
+    this.switchWorkbook(nextIndex);
   }
 
   async exportCsv(): Promise<void> {

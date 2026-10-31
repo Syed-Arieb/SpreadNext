@@ -441,15 +441,24 @@
     </table>
   </div>
 
-  <div class="sheet-tabs" role="tablist">
+  <div class="sheet-tabs" role="tablist" (keydown)="onSheetTabsKeydown($event)">
     @for (workbook of workbooks; track workbook.id; let i = $index) {
       <button
         type="button"
         class="sheet-tab"
         [class.is-active]="activeWorkbookIndex === i"
+        [class.is-dragging]="draggedWorkbookIndex === i"
+        [class.is-drag-over]="dragOverWorkbookIndex === i"
         [attr.aria-controls]="'sheet-' + workbook.id"
+        [attr.draggable]="renamingWorkbookId === workbook.id ? 'false' : 'true'"
         (click)="switchWorkbook(i)"
         (keydown)="($event.key === 'Enter' || $event.key === ' ') && activeWorkbookIndex !== i ? switchWorkbook(i) : null"
+        (contextmenu)="onSheetTabContextMenu($event, workbook.id)"
+        (dragstart)="onWorkbookDragStart($event, i)"
+        (dragover)="onWorkbookDragOver($event, i)"
+        (dragleave)="onWorkbookDragLeave(i)"
+        (drop)="onWorkbookDrop($event, i)"
+        (dragend)="onWorkbookDragEnd()"
       >
         @if (renamingWorkbookId === workbook.id) {
           <input
@@ -707,6 +716,45 @@
           </button>
         </div>
       </section>
+    </div>
+  }
+
+  @if (sheetTabContextMenuOpen) {
+    <div class="export-backdrop" (pointerdown)="closeSheetTabContextMenu()"></div>
+    <div
+      class="sheet-tab-context-menu"
+      role="menu"
+      [style.left.px]="sheetTabContextMenuX"
+      [style.top.px]="sheetTabContextMenuY"
+      (keydown.escape)="closeSheetTabContextMenu()"
+    >
+      <button type="button" role="menuitem" (click)="sheetTabContextRename()">Rename</button>
+      <button type="button" role="menuitem" (click)="sheetTabContextDuplicate()">Duplicate</button>
+      <button
+        type="button"
+        role="menuitem"
+        [disabled]="workbooks.length <= 1"
+        (click)="sheetTabContextDelete()"
+      >
+        Delete
+      </button>
+      <hr />
+      <button
+        type="button"
+        role="menuitem"
+        [disabled]="workbooks.findIndex(item => item.id === sheetTabContextMenuTargetId) <= 0"
+        (click)="sheetTabContextMoveLeft()"
+      >
+        Move left
+      </button>
+      <button
+        type="button"
+        role="menuitem"
+        [disabled]="workbooks.findIndex(item => item.id === sheetTabContextMenuTargetId) >= workbooks.length - 1"
+        (click)="sheetTabContextMoveRight()"
+      >
+        Move right
+      </button>
     </div>
   }
 
