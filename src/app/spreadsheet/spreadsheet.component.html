@@ -292,13 +292,13 @@
     <span class="tool-divider" aria-hidden="true"></span>
 
     <div class="tool-group">
-      <button type="button" class="tool tool-label" title="Add a row at the bottom" (click)="addRow()">
-        <ng-icon name="lucidePlus" aria-hidden="true"></ng-icon>
-        Row
+      <button type="button" class="tool tool-label" title="Merge selected cells" [disabled]="!canMergeSelection()" (click)="mergeSelection()">
+        <ng-icon name="lucideTable" aria-hidden="true"></ng-icon>
+        Merge
       </button>
-      <button type="button" class="tool tool-label" title="Add a column at the right" (click)="addColumn()">
-        <ng-icon name="lucidePlus" aria-hidden="true"></ng-icon>
-        Column
+      <button type="button" class="tool tool-label" title="Unmerge selected cells" [disabled]="!canUnmergeSelection()" (click)="unmergeSelection()">
+        <ng-icon name="lucideTable" aria-hidden="true"></ng-icon>
+        Unmerge
       </button>
     </div>
 
@@ -1136,6 +1136,14 @@
             <button type="button" class="context-item" role="menuitem" (click)="openBorderDialog(); closeContextMenu()">
               <span class="context-item-icon" aria-hidden="true"><app-border-icon preset="all"></app-border-icon></span>
               <span class="context-label">Cell borders...</span>
+            </button>
+            <button type="button" class="context-item" role="menuitem" [disabled]="!canMergeSelection()" (click)="mergeSelection(); closeContextMenu()">
+              <span class="context-item-icon" aria-hidden="true"><ng-icon name="lucideTable"></ng-icon></span>
+              <span class="context-label">Merge cells</span>
+            </button>
+            <button type="button" class="context-item" role="menuitem" [disabled]="!canUnmergeSelection()" (click)="unmergeSelection(); closeContextMenu()">
+              <span class="context-item-icon" aria-hidden="true"><ng-icon name="lucideTable"></ng-icon></span>
+              <span class="context-label">Unmerge cells</span>
             </button>
             <hr />
             <button
