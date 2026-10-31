@@ -229,10 +229,12 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   draggedWorkbookIndex: number | null = null;
   dragOverWorkbookIndex: number | null = null;
   fillDialogOpen = false;
+  textColorDialogOpen = false;
   borderDialogOpen = false;
   contextMenuOpen = false;
   openSubmenu: ContextSubmenu | null = null;
   fillPickerValue = '#fde047';
+  textColorPickerValue = '#111827';
   borderLineStyle: BorderLineStyle = 'thin';
   borderColor = DEFAULT_BORDER_COLOR;
 
@@ -249,6 +251,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   private newSheetReturnFocus: HTMLElement | null = null;
   private deleteReturnFocus: HTMLElement | null = null;
   private fillReturnFocus: HTMLElement | null = null;
+  private textColorReturnFocus: HTMLElement | null = null;
   private borderReturnFocus: HTMLElement | null = null;
   private clipboard: ClipboardCells | null = null;
   private submenuCloseTimer?: ReturnType<typeof setTimeout>;
@@ -274,6 +277,8 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   @ViewChild('sheetTabContextMenu') private sheetTabContextMenuRef?: ElementRef<HTMLElement>;
   @ViewChild('newSheetDialog') private newSheetDialogRef?: ElementRef<HTMLElement>;
   @ViewChild('fillFirst') private fillFirstRef?: ElementRef<HTMLButtonElement>;
+  @ViewChild('textColorFirst') private textColorFirstRef?: ElementRef<HTMLButtonElement>;
+  @ViewChild('textColorDialog') private textColorDialogRef?: ElementRef<HTMLElement>;
   @ViewChild('fillDialog') private fillDialogRef?: ElementRef<HTMLElement>;
   @ViewChild('borderFirst') private borderFirstRef?: ElementRef<HTMLButtonElement>;
   @ViewChild('borderDialog') private borderDialogRef?: ElementRef<HTMLElement>;
@@ -456,7 +461,12 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   }
 
   cellValueColor(row: number, column: number): string | null {
-    const background = this.cellAt(row, column).style.background;
+    const cell = this.cellAt(row, column);
+    if (cell.style.color) {
+      return cell.style.color;
+    }
+
+    const background = cell.style.background;
     if (!background || this.displayAt(row, column).startsWith('#')) {
       return null;
     }
@@ -1440,7 +1450,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   }
 
   openFillDialog(): void {
-    if (this.fillDialogOpen || this.borderDialogOpen || this.confirmNewWorkbookOpen || this.exportMenuOpen) {
+    if (this.textColorDialogOpen || this.fillDialogOpen || this.borderDialogOpen || this.confirmNewWorkbookOpen || this.exportMenuOpen) {
       return;
     }
 
@@ -1492,8 +1502,61 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     this.focusGrid();
   }
 
+  openTextColorDialog(): void {
+    if (this.textColorDialogOpen || this.textColorDialogOpen || this.fillDialogOpen || this.borderDialogOpen || this.confirmNewWorkbookOpen || this.exportMenuOpen) {
+      return;
+    }
+
+    this.textColorReturnFocus = this.beginStyleDialog();
+    this.textColorPickerValue = this.activeCellData.style.color ?? '#111827';
+    this.textColorDialogOpen = true;
+    setTimeout(() => this.textColorFirstRef?.nativeElement.focus({ preventScroll: true }));
+  }
+
+  closeTextColorDialog(): void {
+    if (!this.textColorDialogOpen) {
+      return;
+    }
+
+    this.textColorDialogOpen = false;
+    const target = this.textColorReturnFocus;
+    this.textColorReturnFocus = null;
+    this.restoreDialogFocus(target);
+  }
+
+  onTextColorPickerInput(event: Event): void {
+    this.textColorPickerValue = (event.target as HTMLInputElement).value;
+  }
+
+  onTextColorDialogKeydown(event: KeyboardEvent): void {
+    this.handleStyleDialogKeydown(event, this.textColorDialogRef?.nativeElement, () => this.closeTextColorDialog());
+  }
+
+  applyTextColor(color: string | null): void {
+    const textColor = color ? normalizeColor(color) : null;
+    if (color && !textColor) {
+      return;
+    }
+
+    let changed = false;
+    this.forEachSelectedCell(cell => {
+      if (cell.style.color !== textColor) {
+        cell.style.color = textColor;
+        changed = true;
+      }
+    });
+
+    if (changed) {
+      this.pushHistory();
+    }
+
+    this.textColorDialogOpen = false;
+    this.textColorReturnFocus = null;
+    this.focusGrid();
+  }
+
   openBorderDialog(): void {
-    if (this.fillDialogOpen || this.borderDialogOpen || this.confirmNewWorkbookOpen || this.exportMenuOpen) {
+    if (this.textColorDialogOpen || this.fillDialogOpen || this.borderDialogOpen || this.confirmNewWorkbookOpen || this.exportMenuOpen) {
       return;
     }
 
@@ -3019,8 +3082,9 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
         underline: style.underline === true,
         strike: style.strike === true,
         align: style.align === 'center' || style.align === 'right' ? style.align : 'left',
-        background: normalizeColor(style.background),
-        borders: normalizeCellBorders(style.borders)
+         background: normalizeColor(style.background),
+         color: normalizeColor(style.color),
+         borders: normalizeCellBorders(style.borders)
       }
     };
   }

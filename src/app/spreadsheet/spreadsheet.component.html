@@ -248,6 +248,21 @@
     <div class="tool-group">
       <button
         type="button"
+        class="tool text-color-tool"
+        title="Text color"
+        aria-label="Text color"
+        [class.is-active]="activeCellData.style.color"
+        (click)="openTextColorDialog()"
+      >
+        <ng-icon name="lucideType" aria-hidden="true"></ng-icon>
+        <span
+          class="text-color-swatch"
+          aria-hidden="true"
+          [style.color]="cellValueColor(activeCell.row, activeCell.column) ?? 'var(--text)'"
+        >A</span>
+      </button>
+      <button
+        type="button"
         class="tool fill-tool"
         title="Fill color"
         aria-label="Fill color"
@@ -261,6 +276,11 @@
           [style.background-color]="activeCellData.style.background"
         ></span>
       </button>
+    </div>
+
+    <span class="tool-divider" aria-hidden="true"></span>
+
+    <div class="tool-group">
       <button
         type="button"
         class="tool"
@@ -842,6 +862,72 @@
 
         <div class="confirm-actions">
           <button type="button" class="confirm-button" (click)="closeFillDialog()">Cancel</button>
+        </div>
+      </section>
+    </div>
+  }
+
+  @if (textColorDialogOpen) {
+    <div class="export-backdrop" (pointerdown)="closeTextColorDialog()">
+      <section
+        #textColorDialog
+        class="export-menu style-menu"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="text-color-title"
+        (pointerdown)="$event.stopPropagation()"
+        (keydown)="onTextColorDialogKeydown($event)"
+      >
+        <header class="export-header">
+          <span class="export-heading-icon" aria-hidden="true">
+            <ng-icon name="lucideType"></ng-icon>
+          </span>
+          <div class="export-heading">
+            <h2 id="text-color-title">Text color</h2>
+          </div>
+          <button
+            type="button"
+            class="export-close"
+            aria-label="Close text color dialog"
+            (click)="closeTextColorDialog()"
+          >
+            <ng-icon name="lucideX" aria-hidden="true"></ng-icon>
+          </button>
+        </header>
+
+        <div class="fill-grid" role="group" aria-label="Text colors">
+          @for (color of fillColors; track color) {
+            <button
+              #textColorFirst
+              type="button"
+              class="fill-option"
+              [class.is-selected]="activeCellData.style.color === color"
+              [attr.aria-label]="'Text color ' + color"
+              [attr.title]="color"
+              [style.background-color]="color"
+              (click)="applyTextColor(color)"
+            ></button>
+          }
+        </div>
+
+        <div class="style-color-row">
+          <label class="style-color-label" for="custom-text-color">Custom</label>
+          <input
+            id="custom-text-color"
+            class="style-color-input"
+            type="color"
+            [value]="textColorPickerValue"
+            (input)="onTextColorPickerInput($event)"
+            (change)="applyTextColor(textColorPickerValue)"
+          />
+          <span class="style-color-value">{{ textColorPickerValue }}</span>
+          <button type="button" class="confirm-button style-clear-button" (click)="applyTextColor(null)">
+            No color
+          </button>
+        </div>
+
+        <div class="confirm-actions">
+          <button type="button" class="confirm-button" (click)="closeTextColorDialog()">Cancel</button>
         </div>
       </section>
     </div>

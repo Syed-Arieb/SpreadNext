@@ -14,6 +14,7 @@ export interface CellStyle {
   strike: boolean;
   align: CellAlign;
   background: string | null;
+  color: string | null;
   borders: CellBorders;
 }
 
@@ -24,6 +25,7 @@ export const DEFAULT_CELL_STYLE: CellStyle = {
   strike: false,
   align: 'left',
   background: null,
+  color: null,
   borders: createCellBorders()
 };
 
@@ -45,6 +47,7 @@ export function hasCellFormatting(style: CellStyle): boolean {
     style.strike ||
     style.align !== DEFAULT_CELL_STYLE.align ||
     style.background !== null ||
+    style.color !== null ||
     hasCellBorders(style.borders);
 }
 
