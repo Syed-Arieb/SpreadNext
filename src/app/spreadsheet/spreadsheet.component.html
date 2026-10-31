@@ -448,8 +448,8 @@
         class="sheet-tab"
         [class.is-active]="activeWorkbookIndex === i"
         [attr.aria-controls]="'sheet-' + workbook.id"
-        (click)="activeWorkbookIndex = i"
-        (keydown)="($event.key === 'Enter' || $event.key === ' ') && activeWorkbookIndex !== i ? activeWorkbookIndex = i : null"
+        (click)="switchWorkbook(i)"
+        (keydown)="($event.key === 'Enter' || $event.key === ' ') && activeWorkbookIndex !== i ? switchWorkbook(i) : null"
       >
         <span class="sheet-tab-name">{{ workbook.name }}</span>
         @if (workbooks.length > 1) {
@@ -460,9 +460,10 @@
     <button
       type="button"
       class="sheet-tab sheet-tab--new"
-      (click)="confirmNewSheet()"
-      (keydown)="$event.key === 'Enter' && confirmNewSheet()"
+      (click)="addWorkbook()"
+      (keydown)="$event.key === 'Enter' && addWorkbook()"
       aria-label="Add new workbook"
+      title="Add new sheet"
     >
       <ng-icon name="lucidePlus" aria-hidden="true"></ng-icon>
     </button>

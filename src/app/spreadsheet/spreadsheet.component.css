@@ -744,18 +744,26 @@
 .sheet-tabs {
   display: flex;
   flex: 0 0 auto;
+  align-items: flex-end;
   gap: 2px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-top: 1px solid var(--border);
-  padding: 2px;
+  padding: 2px 4px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.sheet-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .sheet-tab {
-  flex: 1;
-  min-width: 80px;
+  flex: 0 0 auto;
+  max-width: 180px;
+  min-width: 88px;
   height: 28px;
-  padding: 0 8px;
+  padding: 0 28px 0 10px;
   background: transparent;
   border: none;
   border-radius: 6px 6px 0 0;
@@ -763,11 +771,12 @@
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 4px;
   transition: background 0.12s, color 0.12s;
   position: relative;
+  white-space: nowrap;
 }
 
 .sheet-tab:hover:not(.is-active) {
@@ -811,18 +820,29 @@
 }
 
 .sheet-tab--new {
-  min-width: 28px;
+  flex: 0 0 auto;
+  width: 30px;
+  min-width: 30px;
+  height: 26px;
   padding: 0;
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  transition: color 0.12s;
+  margin-bottom: 1px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .sheet-tab--new:hover {
-  color: var(--text);
-  background: var(--surface-2);
-  border-radius: 6px 6px 0 0;
+  color: var(--accent, #3b82f6);
+  background: var(--surface);
+  border-color: var(--accent, #3b82f6);
 }
 
 .sheet-tab--new:focus-visible {
