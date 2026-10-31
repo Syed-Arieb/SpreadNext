@@ -3343,9 +3343,10 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   private scrollActiveIntoView(): void {
     setTimeout(() => {
       const selector = `[data-row="${this.activeCell.row}"][data-col="${this.activeCell.column}"]`;
-      this.gridRef?.nativeElement
-        .querySelector<HTMLElement>(selector)
-        ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      const target = this.gridRef?.nativeElement.querySelector<HTMLElement>(selector);
+      if (target && typeof target.scrollIntoView === 'function') {
+        target.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      }
     });
   }
 
