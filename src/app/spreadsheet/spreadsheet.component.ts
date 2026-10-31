@@ -465,6 +465,11 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   }
 
   cellAt(row: number, column: number): Cell {
+    const merge = this.mergedAt(row, column);
+    if (merge && (merge.row !== row || merge.column !== column)) {
+      return this.cellData[merge.row]?.[merge.column] ?? this.createCell();
+    }
+
     return this.cellData[row]?.[column] ?? this.createCell();
   }
 
