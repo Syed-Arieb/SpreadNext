@@ -511,6 +511,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
       this.selectionAnchor = { ...this.activeCell };
     }
     this.formulaValue = this.activeCellData.value;
+    this.expandSelectionForMerges();
     this.focusGrid();
   }
 
@@ -561,6 +562,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
 
     this.activeCell = this.clampSelection(row, column);
     this.formulaValue = this.activeCellData.value;
+    this.expandSelectionForMerges();
   }
 
   isReferenceCell(row: number, column: number): boolean {
@@ -1194,19 +1196,35 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     switch (key) {
       case 'ArrowUp':
         event.preventDefault();
-        this.moveSelection('up');
+        if (event.shiftKey) {
+          this.extendSelectionKeyboard('up');
+        } else {
+          this.moveSelection('up');
+        }
         return;
       case 'ArrowDown':
         event.preventDefault();
-        this.moveSelection('down');
+        if (event.shiftKey) {
+          this.extendSelectionKeyboard('down');
+        } else {
+          this.moveSelection('down');
+        }
         return;
       case 'ArrowLeft':
         event.preventDefault();
-        this.moveSelection('left');
+        if (event.shiftKey) {
+          this.extendSelectionKeyboard('left');
+        } else {
+          this.moveSelection('left');
+        }
         return;
       case 'ArrowRight':
         event.preventDefault();
-        this.moveSelection('right');
+        if (event.shiftKey) {
+          this.extendSelectionKeyboard('right');
+        } else {
+          this.moveSelection('right');
+        }
         return;
       case 'Tab':
         event.preventDefault();
@@ -1292,6 +1310,55 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     };
     this.selectionAnchor = { ...this.activeCell };
     this.formulaValue = this.activeCellData.value;
+    this.focusGrid();
+    this.scrollActiveIntoView();
+  }
+
+  extendSelectionKeyboard(direction: 'up' | 'down' | 'left' | 'right'): void {
+    let row = this.activeCell.row;
+    let column = this.activeCell.column;
+
+    if (direction === 'up') {
+      row -= 1;
+    } else if (direction === 'down') {
+      row += 1;
+    } else if (direction === 'left') {
+      column -= 1;
+    } else {
+      column += 1;
+    }
+
+    let guard = 0;
+    while (
+      guard < this.rows + this.columns + 5 &&
+      row >= 0 &&
+      row < this.rows &&
+      column >= 0 &&
+      column < this.columns &&
+      this.isMergedHidden(row, column)
+    ) {
+      if (direction === 'up') {
+        row -= 1;
+      } else if (direction === 'down') {
+        row += 1;
+      } else if (direction === 'left') {
+        column -= 1;
+      } else {
+        column += 1;
+      }
+      guard += 1;
+    }
+
+    if (row >= this.rows) {
+      this.addRow();
+    }
+    if (column >= this.columns) {
+      this.addColumn();
+    }
+
+    this.activeCell = this.clampSelection(row, column);
+    this.formulaValue = this.activeCellData.value;
+    this.expandSelectionForMerges();
     this.focusGrid();
     this.scrollActiveIntoView();
   }
@@ -2023,6 +2090,89 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   isMergedHidden(row: number, column: number): boolean {
     const merge = this.mergedAt(row, column);
     return merge !== null && (merge.row !== row || merge.column !== column);
+  }
+
+  expandSelectionForMerges(): void {
+    let top = this.selectionTop;
+    let left = this.selectionLeft;
+    let bottom = this.selectionBottom;
+    let right = this.selectionRight;
+
+    let changed = true;
+    let iterations = 0;
+
+    while (changed && iterations < this.rows + this.columns + 5) {
+      changed = false;
+      iterations += 1;
+
+      for (const merge of this.mergedCells) {
+        const mergeBottom = merge.row + merge.rows - 1;
+        const mergeRight = merge.column + merge.columns - 1;
+        const intersects =
+          mergeBottom >= top &&
+          merge.row <= bottom &&
+          mergeRight >= left &&
+          merge.column <= right;
+
+        if (!intersects) {
+          continue;
+        }
+
+        if (merge.row < top) {
+          top = merge.row;
+          changed = true;
+        }
+        if (mergeBottom > bottom) {
+          bottom = mergeBottom;
+          changed = true;
+        }
+        if (merge.column < left) {
+          left = merge.column;
+          changed = true;
+        }
+        if (mergeRight > right) {
+          right = mergeRight;
+          changed = true;
+        }
+      }
+    }
+
+    top = this.clamp(top, 0, this.rows - 1);
+    left = this.clamp(left, 0, this.columns - 1);
+    bottom = this.clamp(bottom, 0, this.rows - 1);
+    right = this.clamp(right, 0, this.columns - 1);
+
+    const anchorIsTopLeft = this.selectionAnchor.row <= this.activeCell.row && this.selectionAnchor.column <= this.activeCell.column;
+    const anchorIsTopRight = this.selectionAnchor.row <= this.activeCell.row && this.selectionAnchor.column >= this.activeCell.column;
+    const anchorIsBottomLeft = this.selectionAnchor.row >= this.activeCell.row && this.selectionAnchor.column <= this.activeCell.column;
+    const anchorIsBottomRight = this.selectionAnchor.row >= this.activeCell.row && this.selectionAnchor.column >= this.activeCell.column;
+
+    if (anchorIsTopLeft) {
+      this.selectionAnchor = { row: top, column: left };
+      this.activeCell = { row: bottom, column: right };
+    } else if (anchorIsBottomRight) {
+      this.selectionAnchor = { row: bottom, column: right };
+      this.activeCell = { row: top, column: left };
+    } else if (anchorIsTopRight) {
+      this.selectionAnchor = { row: top, column: right };
+      this.activeCell = { row: bottom, column: left };
+    } else if (anchorIsBottomLeft) {
+      this.selectionAnchor = { row: bottom, column: left };
+      this.activeCell = { row: top, column: right };
+    } else {
+      this.selectionAnchor = { row: top, column: left };
+      this.activeCell = { row: bottom, column: right };
+    }
+
+    this.selectionAnchor = {
+      row: this.clamp(this.selectionAnchor.row, 0, this.rows - 1),
+      column: this.clamp(this.selectionAnchor.column, 0, this.columns - 1),
+    };
+    this.activeCell = {
+      row: this.clamp(this.activeCell.row, 0, this.rows - 1),
+      column: this.clamp(this.activeCell.column, 0, this.columns - 1),
+    };
+    this.formulaValue = this.activeCellData.value;
   }
 
   visibleColumns(row: number): Array<{ column: number; colspan: number; rowspan: number }> {
