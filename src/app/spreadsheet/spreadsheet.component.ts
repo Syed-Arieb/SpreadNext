@@ -79,6 +79,14 @@ interface SheetSnapshot {
   columns: number;
   cells: Cell[][];
   columnWidths: number[];
+  mergedCells?: MergedCell[];
+}
+
+interface MergedCell {
+  row: number;
+  column: number;
+  rows: number;
+  columns: number;
 }
 
 interface Workbook {
@@ -183,6 +191,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   ];
 
   cellData: Cell[][] = [];
+  mergedCells: MergedCell[] = [];
   displayValues: string[][] = [];
   columnWidths: number[] = [];
   rowIndices: number[] = [];
@@ -303,9 +312,10 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
               style: cloneCellStyle(cell.style)
             }))
           ),
-          columnWidths: Array(DEFAULT_COLUMNS).fill(DEFAULT_COLUMN_WIDTH)
-        }
-      }];
+           columnWidths: Array(DEFAULT_COLUMNS).fill(DEFAULT_COLUMN_WIDTH),
+           mergedCells: []
+         }
+       }];
       this.activeWorkbookIndex = 0;
     }
 
@@ -1248,6 +1258,27 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
       column += 1;
     }
 
+    let guard = 0;
+    while (
+      guard < this.rows + this.columns + 5 &&
+      row >= 0 &&
+      row < this.rows &&
+      column >= 0 &&
+      column < this.columns &&
+      this.isMergedHidden(row, column)
+    ) {
+      if (direction === 'up') {
+        row -= 1;
+      } else if (direction === 'down') {
+        row += 1;
+      } else if (direction === 'left') {
+        column -= 1;
+      } else {
+        column += 1;
+      }
+      guard += 1;
+    }
+
     if (row >= this.rows) {
       this.addRow();
     }
@@ -1842,7 +1873,8 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
             style: cloneCellStyle(cell.style)
           }))
         ),
-        columnWidths: Array(DEFAULT_COLUMNS).fill(DEFAULT_COLUMN_WIDTH)
+        columnWidths: Array(DEFAULT_COLUMNS).fill(DEFAULT_COLUMN_WIDTH),
+        mergedCells: []
       }
     };
 
@@ -1902,7 +1934,8 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
             style: cloneCellStyle(cell.style)
           }))
         ),
-        columnWidths: Array(DEFAULT_COLUMNS).fill(DEFAULT_COLUMN_WIDTH)
+        columnWidths: Array(DEFAULT_COLUMNS).fill(DEFAULT_COLUMN_WIDTH),
+        mergedCells: []
       }
     };
 
@@ -1959,6 +1992,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
       style: cloneCellStyle(cell.style)
     })));
     this.columnWidths = this.normalizeColumnWidths(workbook.snapshot.columnWidths, this.columns);
+    this.mergedCells = workbook.snapshot.mergedCells ? workbook.snapshot.mergedCells.map(merge => ({ ...merge })) : [];
     this.rebuildIndices();
     this.activeCell = { row: 0, column: 0 };
     this.selectionAnchor = { row: 0, column: 0 };
@@ -1977,6 +2011,134 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     }
   }
 
+  mergedAt(row: number, column: number): MergedCell | null {
+    return this.mergedCells.find(merge =>
+      row >= merge.row &&
+      row < merge.row + merge.rows &&
+      column >= merge.column &&
+      column < merge.column + merge.columns
+    ) ?? null;
+  }
+
+  isMergedHidden(row: number, column: number): boolean {
+    const merge = this.mergedAt(row, column);
+    return merge !== null && (merge.row !== row || merge.column !== column);
+  }
+
+  visibleColumns(row: number): Array<{ column: number; colspan: number; rowspan: number }> {
+    const result: Array<{ column: number; colspan: number; rowspan: number }> = [];
+    let column = 0;
+
+    while (column < this.columns) {
+      if (this.isMergedHidden(row, column)) {
+        column += 1;
+        continue;
+      }
+
+      const merge = this.mergedAt(row, column);
+      const colspan = merge ? merge.columns : 1;
+      const rowspan = merge ? merge.rows : 1;
+
+      result.push({ column, colspan, rowspan });
+      column += colspan;
+    }
+
+    return result;
+  }
+
+  canMergeSelection(): boolean {
+    return this.selectionTop !== this.selectionBottom || this.selectionLeft !== this.selectionRight;
+  }
+
+  canUnmergeSelection(): boolean {
+    return this.mergedAt(this.activeCell.row, this.activeCell.column) !== null;
+  }
+
+  mergeSelection(): void {
+    if (!this.canMergeSelection()) {
+      return;
+    }
+
+    this.commitRename();
+    this.commitEdit('none', false);
+
+    if (this.formulaSource === 'formula') {
+      this.commitFormula();
+    }
+
+    const range: MergedCell = {
+      row: this.selectionTop,
+      column: this.selectionLeft,
+      rows: this.selectionBottom - this.selectionTop + 1,
+      columns: this.selectionRight - this.selectionLeft + 1,
+    };
+
+    this.closeMenus();
+    this.hideSuggestions();
+
+    this.mergedCells = this.mergedCells.filter(merge => !this.rangesIntersect(merge, range));
+
+    for (let row = range.row; row < range.row + range.rows; row += 1) {
+      for (let column = range.column; column < range.column + range.columns; column += 1) {
+        if (row === range.row && column === range.column) {
+          continue;
+        }
+
+        const cell = this.cellAt(row, column);
+        if (cell) {
+          cell.value = '';
+        }
+      }
+    }
+
+    this.mergedCells.push(range);
+    this.activeCell = { row: range.row, column: range.column };
+    this.selectionAnchor = { ...this.activeCell };
+    this.formulaValue = this.activeCellData.value;
+    this.resetDisplayValues();
+    this.pushHistory();
+    this.sheetChange.emit();
+    this.scheduleSave();
+    this.scheduleRecalculate();
+    this.focusGrid();
+  }
+
+  unmergeSelection(): void {
+    this.commitRename();
+    this.commitEdit('none', false);
+
+    if (this.formulaSource === 'formula') {
+      this.commitFormula();
+    }
+
+    const merge = this.mergedAt(this.activeCell.row, this.activeCell.column);
+    if (!merge) {
+      return;
+    }
+
+    this.closeMenus();
+    this.hideSuggestions();
+
+    this.mergedCells = this.mergedCells.filter(item =>
+      item.row !== merge.row || item.column !== merge.column
+    );
+
+    this.pushHistory();
+    this.sheetChange.emit();
+    this.scheduleSave();
+    this.scheduleRecalculate();
+    this.focusGrid();
+  }
+
+  private rangesIntersect(a: MergedCell, b: MergedCell): boolean {
+    return !(
+      a.row + a.rows <= b.row ||
+      b.row + b.rows <= a.row ||
+      a.column + a.columns <= b.column ||
+      b.column + b.columns <= a.column
+    );
+  }
+
   private currentSnapshot(): SheetSnapshot {
     return {
       rows: this.rows,
@@ -1985,7 +2147,8 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
         value: cell.value,
         style: cloneCellStyle(cell.style)
       }))),
-      columnWidths: [...this.columnWidths]
+      columnWidths: [...this.columnWidths],
+      mergedCells: this.mergedCells.map(merge => ({ ...merge }))
     };
   }
 
@@ -2029,6 +2192,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
         style: cloneCellStyle(cell.style)
       })));
       this.columnWidths = this.normalizeColumnWidths(workbook.snapshot.columnWidths, this.columns);
+      this.mergedCells = workbook.snapshot.mergedCells ? workbook.snapshot.mergedCells.map(merge => ({ ...merge })) : [];
       this.rebuildIndices();
       this.activeCell = { row: 0, column: 0 };
       this.selectionAnchor = { ...this.activeCell };
@@ -2219,6 +2383,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
         style: cloneCellStyle(cell.style)
       })));
       this.columnWidths = this.normalizeColumnWidths(workbook.snapshot.columnWidths, this.columns);
+      this.mergedCells = workbook.snapshot.mergedCells ? workbook.snapshot.mergedCells.map(merge => ({ ...merge })) : [];
       this.rebuildIndices();
       this.activeCell = { row: 0, column: 0 };
       this.selectionAnchor = { row: 0, column: 0 };
@@ -2721,6 +2886,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
       style: cloneCellStyle(cell.style)
     })));
     this.columnWidths = this.normalizeColumnWidths(snapshot.columnWidths, this.columns);
+    this.mergedCells = snapshot.mergedCells ? snapshot.mergedCells.map(merge => ({ ...merge })) : [];
     this.rebuildIndices();
     this.activeCell = {
       row: this.clamp(this.activeCell.row, 0, this.rows - 1),
@@ -2804,6 +2970,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
         style: cloneCellStyle(cell.style)
       })));
       this.columnWidths = this.normalizeColumnWidths(workbook.snapshot.columnWidths, this.columns);
+      this.mergedCells = workbook.snapshot.mergedCells ? workbook.snapshot.mergedCells.map(merge => ({ ...merge })) : [];
       this.rebuildIndices();
       this.activeCell = {
         row: this.clamp(this.activeCell.row, 0, this.rows - 1),
@@ -2844,7 +3011,8 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
                 style: cloneCellStyle(cell.style)
               }))
             ),
-            columnWidths: [...w.snapshot.columnWidths]
+            columnWidths: [...w.snapshot.columnWidths],
+            mergedCells: (w.snapshot.mergedCells ?? []).map(merge => ({ ...merge }))
           }
         })),
         activeIndex: this.activeWorkbookIndex

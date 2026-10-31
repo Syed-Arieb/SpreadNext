@@ -187,6 +187,16 @@
           <span class="menu-check" aria-hidden="true"></span>
           Cell borders...
         </button>
+        <button type="button" (click)="mergeSelection(); closeMenus()" [disabled]="!canMergeSelection()">
+          <span class="menu-icon" aria-hidden="true"><ng-icon name="lucideTable"></ng-icon></span>
+          <span class="menu-check" aria-hidden="true"></span>
+          Merge cells
+        </button>
+        <button type="button" (click)="unmergeSelection(); closeMenus()" [disabled]="!canUnmergeSelection()">
+          <span class="menu-icon" aria-hidden="true"><ng-icon name="lucideTable"></ng-icon></span>
+          <span class="menu-check" aria-hidden="true"></span>
+          Unmerge cells
+        </button>
         <hr />
         <button type="button" (click)="clearFormatting(); closeMenus()" [disabled]="!selectionHasFormatting">
           <span class="menu-icon" aria-hidden="true"><ng-icon name="lucideEraser"></ng-icon></span>
@@ -372,9 +382,12 @@
         @for (row of rowIndices; track row) {
           <tr>
             <th class="row-header" scope="row" [class.active]="activeCell.row === row" [class.in-selection]="isRowInSelection(row)">{{ row + 1 }}</th>
-            @for (column of columnIndices; track column) {
+            @for (cell of visibleColumns(row); track cell.column) {
+              @let column = cell.column;
               <td
                 class="cell"
+                [attr.colspan]="cell.colspan > 1 ? cell.colspan : null"
+                [attr.rowspan]="cell.rowspan > 1 ? cell.rowspan : null"
                 [class.active]="isActive(row, column)"
                 [class.selected]="isSelected(row, column)"
                 [class.reference]="isReferenceCell(row, column)"
