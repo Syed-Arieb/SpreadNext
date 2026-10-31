@@ -547,7 +547,15 @@
   </div>
 
   <footer class="statusbar" aria-live="polite">
-    <span class="status-save-indicator" [class.is-saving]="saveStatus === 'saving'" [attr.aria-label]="saveStatus === 'saving' ? 'Saving' : 'Saved'">
+    <span class="status-address">{{ selectionLabel }}</span>
+    @if (selectedCellCount > 1) {
+      <span class="status-count">{{ selectedCellCount }} cells</span>
+    }
+    <span class="status-spacer"></span>
+    @if (selectionSummary) {
+      <span class="status-summary">{{ selectionSummary }}</span>
+    }
+    <span class="status-save-indicator" [class.is-saving]="saveStatus === 'saving'" [attr.aria-label]="saveStatus === 'saving' ? 'Saving' : 'Saved'" [attr.title]="saveStatus === 'saving' ? 'Saving' : 'Saved'">
       <span class="status-save-dot" aria-hidden="true"></span>
     </span>
   </footer>
