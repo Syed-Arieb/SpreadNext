@@ -451,9 +451,35 @@
         (click)="switchWorkbook(i)"
         (keydown)="($event.key === 'Enter' || $event.key === ' ') && activeWorkbookIndex !== i ? switchWorkbook(i) : null"
       >
-        <span class="sheet-tab-name">{{ workbook.name }}</span>
+        @if (renamingWorkbookId === workbook.id) {
+          <input
+            class="sheet-tab-rename"
+            type="text"
+            (click)="$event.stopPropagation()"
+            (focus)="$event.stopPropagation()"
+            [value]="renameValue"
+            (input)="renameValue = $any($event.target).value"
+            (keydown.enter)="commitRename()"
+            (keydown.escape)="cancelRename()"
+            (blur)="commitRename()"
+            aria-label="Rename sheet"
+          />
+        } @else {
+          <span class="sheet-tab-name" (dblclick)="startRename(workbook); $event.stopPropagation()">{{ workbook.name }}</span>
+        }
         @if (workbooks.length > 1) {
-          <span class="sheet-tab-close" (click)="removeWorkbook(workbook.id); $event.stopPropagation()">×</span>
+          <span
+            class="sheet-tab-action"
+            role="button"
+            tabindex="0"
+            (click)="duplicateWorkbook(workbook.id); $event.stopPropagation()"
+            (keydown.enter)="duplicateWorkbook(workbook.id); $event.stopPropagation()"
+            aria-label="Duplicate sheet"
+            title="Duplicate sheet"
+          >
+            <ng-icon name="lucideCopy" aria-hidden="true"></ng-icon>
+          </span>
+          <span class="sheet-tab-close" (click)="requestRemoveWorkbook(workbook.id); $event.stopPropagation()" title="Delete sheet">×</span>
         }
       </button>
     }
@@ -633,6 +659,51 @@
             (click)="confirmNewSheet()"
           >
             New sheet
+          </button>
+        </div>
+      </section>
+    </div>
+  }
+
+  @if (confirmDeleteSheetOpen) {
+    <div class="export-backdrop" (pointerdown)="cancelRemoveWorkbook()">
+      <section
+        #deleteSheetDialog
+        class="export-menu confirm-menu"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="delete-sheet-title"
+        aria-describedby="delete-sheet-copy"
+        (pointerdown)="$event.stopPropagation()"
+      >
+        <header class="export-header">
+          <span class="export-heading-icon" aria-hidden="true">
+            <ng-icon name="lucideTrash2"></ng-icon>
+          </span>
+          <div class="export-heading">
+            <h2 id="delete-sheet-title">Delete sheet?</h2>
+          </div>
+        </header>
+
+        <p class="confirm-copy" id="delete-sheet-copy">
+          Delete "{{ pendingDeleteWorkbookName }}"? This cannot be undone.
+        </p>
+
+        <div class="confirm-actions">
+          <button
+            #deleteSheetCancel
+            type="button"
+            class="confirm-button"
+            (click)="cancelRemoveWorkbook()"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="confirm-button confirm-button--primary confirm-button--danger"
+            (click)="confirmRemoveWorkbook()"
+          >
+            Delete
           </button>
         </div>
       </section>

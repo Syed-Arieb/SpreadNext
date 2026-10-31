@@ -796,6 +796,43 @@
   white-space: nowrap;
 }
 
+.sheet-tab .sheet-tab-rename {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--accent, #3b82f6);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 0 4px;
+  outline: none;
+}
+
+.sheet-tab .sheet-tab-action {
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.sheet-tab:hover .sheet-tab-action {
+  opacity: 0.7;
+}
+
 .sheet-tab .sheet-tab-close {
   position: absolute;
   right: 4px;
@@ -1062,6 +1099,18 @@
 .confirm-button--primary:hover {
   background: var(--accent);
   border-color: var(--accent);
+  filter: brightness(1.08);
+}
+
+.confirm-button--danger {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #ffffff;
+}
+
+.confirm-button--danger:hover {
+  background: #b91c1c;
+  border-color: #b91c1c;
   filter: brightness(1.08);
 }
 

@@ -213,6 +213,11 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   selecting = false;
   exportMenuOpen = false;
   confirmNewSheetOpen = false;
+  confirmDeleteSheetOpen = false;
+  pendingDeleteWorkbookId: string | null = null;
+  pendingDeleteWorkbookName = '';
+  renamingWorkbookId: string | null = null;
+  renameValue = '';
   fillDialogOpen = false;
   borderDialogOpen = false;
   contextMenuOpen = false;
@@ -232,6 +237,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   private cachedFormulaReferences: FormulaReference[] = [];
   private exportReturnFocus: HTMLElement | null = null;
   private newSheetReturnFocus: HTMLElement | null = null;
+  private deleteReturnFocus: HTMLElement | null = null;
   private fillReturnFocus: HTMLElement | null = null;
   private borderReturnFocus: HTMLElement | null = null;
   private clipboard: ClipboardCells | null = null;
@@ -254,6 +260,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   @ViewChild('exportFirst') private exportFirstRef?: ElementRef<HTMLButtonElement>;
   @ViewChild('exportDialog') private exportDialogRef?: ElementRef<HTMLElement>;
   @ViewChild('newSheetCancel') private newSheetCancelRef?: ElementRef<HTMLButtonElement>;
+  @ViewChild('deleteSheetCancel') private deleteSheetCancelRef?: ElementRef<HTMLButtonElement>;
   @ViewChild('newSheetDialog') private newSheetDialogRef?: ElementRef<HTMLElement>;
   @ViewChild('fillFirst') private fillFirstRef?: ElementRef<HTMLButtonElement>;
   @ViewChild('fillDialog') private fillDialogRef?: ElementRef<HTMLElement>;
@@ -1955,6 +1962,171 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     this.sheetChange.emit();
     this.scheduleSave();
     this.scheduleRecalculate();
+  }
+
+  startRename(workbook: Workbook): void {
+    this.commitEdit('none', false);
+
+    if (this.formulaSource === 'formula') {
+      this.commitFormula();
+    }
+
+    this.renamingWorkbookId = workbook.id;
+    this.renameValue = workbook.name;
+
+    setTimeout(() => {
+      const input = document.querySelector('.sheet-tab-rename') as HTMLInputElement | null;
+      input?.focus();
+      input?.select();
+    });
+  }
+
+  commitRename(): void {
+    if (!this.renamingWorkbookId) {
+      return;
+    }
+
+    const workbook = this.workbooks.find(item => item.id === this.renamingWorkbookId);
+    if (workbook && this.renameValue.trim()) {
+      workbook.name = this.renameValue.trim();
+    }
+
+    this.renamingWorkbookId = null;
+    this.renameValue = '';
+    this.sheetChange.emit();
+    this.scheduleSave();
+  }
+
+  cancelRename(): void {
+    this.renamingWorkbookId = null;
+    this.renameValue = '';
+  }
+
+  requestRemoveWorkbook(id: string): void {
+    if (this.workbooks.length <= 1) {
+      return;
+    }
+
+    const workbook = this.workbooks.find(item => item.id === id);
+    if (!workbook) {
+      return;
+    }
+
+    this.commitEdit('none', false);
+
+    if (this.formulaSource === 'formula') {
+      this.commitFormula();
+    }
+
+    this.deleteReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    this.pendingDeleteWorkbookId = id;
+    this.pendingDeleteWorkbookName = workbook.name;
+    this.confirmDeleteSheetOpen = true;
+
+    setTimeout(() => this.deleteSheetCancelRef?.nativeElement.focus({ preventScroll: true }));
+  }
+
+  cancelRemoveWorkbook(): void {
+    if (!this.confirmDeleteSheetOpen) {
+      return;
+    }
+
+    this.confirmDeleteSheetOpen = false;
+    this.pendingDeleteWorkbookId = null;
+    this.pendingDeleteWorkbookName = '';
+    const target = this.deleteReturnFocus;
+    this.deleteReturnFocus = null;
+
+    if (target?.isConnected && target.getClientRects().length > 0) {
+      target.focus();
+    } else {
+      this.focusGrid();
+    }
+  }
+
+  confirmRemoveWorkbook(): void {
+    if (!this.confirmDeleteSheetOpen || !this.pendingDeleteWorkbookId) {
+      return;
+    }
+
+    const id = this.pendingDeleteWorkbookId;
+    this.confirmDeleteSheetOpen = false;
+    this.pendingDeleteWorkbookId = null;
+    this.pendingDeleteWorkbookName = '';
+    const target = this.deleteReturnFocus;
+    this.deleteReturnFocus = null;
+
+    this.removeWorkbook(id);
+
+    if (target?.isConnected && target.getClientRects().length > 0) {
+      target.focus();
+    }
+  }
+
+  duplicateWorkbook(id: string): void {
+    const index = this.workbooks.findIndex(item => item.id === id);
+    if (index === -1) {
+      return;
+    }
+
+    this.commitEdit('none', false);
+
+    if (this.formulaSource === 'formula') {
+      this.commitFormula();
+    }
+
+    this.closeMenus();
+    this.hideSuggestions();
+
+    this.workbooks[this.activeWorkbookIndex].snapshot = this.currentSnapshot();
+
+    const source = this.workbooks[index];
+    const clone: Workbook = {
+      id: crypto.randomUUID(),
+      name: source.name + ' copy',
+      snapshot: {
+        rows: source.snapshot.rows,
+        columns: source.snapshot.columns,
+        cells: source.snapshot.cells.map(row =>
+          row.map(cell => ({
+            value: cell.value,
+            style: cloneCellStyle(cell.style)
+          }))
+        ),
+        columnWidths: [...source.snapshot.columnWidths]
+      }
+    };
+
+    const duplicatingActive = this.activeWorkbookIndex === index;
+    this.workbooks.splice(index + 1, 0, clone);
+
+    if (duplicatingActive) {
+      this.activeWorkbookIndex = index + 1;
+    } else if (this.activeWorkbookIndex > index) {
+      this.activeWorkbookIndex += 1;
+    }
+
+    const workbook = this.workbooks[this.activeWorkbookIndex];
+    this.rows = workbook.snapshot.rows;
+    this.columns = workbook.snapshot.columns;
+    this.cellData = workbook.snapshot.cells.map(row => row.map(cell => ({
+      value: cell.value,
+      style: cloneCellStyle(cell.style)
+    })));
+    this.columnWidths = this.normalizeColumnWidths(workbook.snapshot.columnWidths, this.columns);
+    this.rebuildIndices();
+    this.activeCell = { row: 0, column: 0 };
+    this.selectionAnchor = { row: 0, column: 0 };
+    this.formulaValue = this.cellAt(0, 0).value;
+    this.resetDisplayValues();
+    this.history = [this.currentSnapshot()];
+    this.historyIndex = 0;
+    this.updateHistoryFlags();
+    this.workbooks[this.activeWorkbookIndex].snapshot = this.currentSnapshot();
+    this.sheetChange.emit();
+    this.scheduleSave();
+    this.scheduleRecalculate();
+    this.focusGrid();
   }
 
   async exportCsv(): Promise<void> {
