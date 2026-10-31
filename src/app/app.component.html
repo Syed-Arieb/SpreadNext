@@ -22,9 +22,12 @@
 
     <span class="spacer"></span>
 
-    <span class="save-status" [class.dirty]="unsavedChanges">
-      {{ unsavedChanges ? 'Unsaved changes' : 'Saved locally' }}
-    </span>
+    <span
+      class="save-status"
+      [class.dirty]="unsavedChanges"
+      [attr.title]="unsavedChanges ? 'Unsaved changes' : 'Saved locally'"
+      [attr.aria-label]="unsavedChanges ? 'Unsaved changes' : 'Saved locally'"
+    ></span>
 
     <button
       class="icon-button"
