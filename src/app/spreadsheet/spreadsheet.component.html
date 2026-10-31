@@ -732,8 +732,9 @@
   }
 
   @if (sheetTabContextMenuOpen) {
-    <div class="export-backdrop" (pointerdown)="closeSheetTabContextMenu()"></div>
+    <div class="sheet-tab-context-backdrop" (pointerdown)="closeSheetTabContextMenu()"></div>
     <div
+      #sheetTabContextMenu
       class="sheet-tab-context-menu"
       role="menu"
       [style.left.px]="sheetTabContextMenuX"

@@ -262,6 +262,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   @ViewChild('exportDialog') private exportDialogRef?: ElementRef<HTMLElement>;
   @ViewChild('newSheetCancel') private newSheetCancelRef?: ElementRef<HTMLButtonElement>;
   @ViewChild('deleteSheetCancel') private deleteSheetCancelRef?: ElementRef<HTMLButtonElement>;
+  @ViewChild('sheetTabContextMenu') private sheetTabContextMenuRef?: ElementRef<HTMLElement>;
   @ViewChild('newSheetDialog') private newSheetDialogRef?: ElementRef<HTMLElement>;
   @ViewChild('fillFirst') private fillFirstRef?: ElementRef<HTMLButtonElement>;
   @ViewChild('fillDialog') private fillDialogRef?: ElementRef<HTMLElement>;
@@ -2240,6 +2241,20 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     this.sheetTabContextMenuX = event.clientX;
     this.sheetTabContextMenuY = event.clientY;
     this.sheetTabContextMenuOpen = true;
+
+    setTimeout(() => {
+      const menu = this.sheetTabContextMenuRef?.nativeElement;
+      if (!menu) {
+        return;
+      }
+
+      const rect = menu.getBoundingClientRect();
+      const maxX = Math.max(8, window.innerWidth - rect.width - 8);
+      const maxY = Math.max(8, window.innerHeight - rect.height - 8);
+
+      this.sheetTabContextMenuX = Math.min(Math.max(8, this.sheetTabContextMenuX), maxX);
+      this.sheetTabContextMenuY = Math.min(Math.max(8, this.sheetTabContextMenuY), maxY);
+    });
   }
 
   closeSheetTabContextMenu(): void {
