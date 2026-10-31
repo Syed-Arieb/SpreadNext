@@ -592,3 +592,149 @@ mod tests {
         ])
     }
 }
+
+#[derive(Deserialize)]
+struct FormulaInput {
+    #[serde(default)]
+    formula: String,
+}
+
+#[derive(Serialize)]
+struct FormulaValidationOutput {
+    valid: bool,
+    error: Option<String>,
+}
+
+#[derive(Serialize, Clone, Copy)]
+struct FormulaReferenceOutput {
+    row: usize,
+    column: usize,
+}
+
+#[derive(Serialize)]
+struct FormulaParseOutput {
+    valid: bool,
+    references: Vec<FormulaReferenceOutput>,
+    error: Option<String>,
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn validate_formula(pointer: *const u8, length: usize) {
+    let input = if pointer.is_null() || length == 0 {
+        &[]
+    } else {
+        std::slice::from_raw_parts(pointer, length)
+    };
+
+    let formula = serde_json::from_slice::<FormulaInput>(input)
+        .map(|request| request.formula)
+        .unwrap_or_default();
+
+    let output = if formula.trim().is_empty() {
+        FormulaValidationOutput {
+            valid: true,
+            error: None,
+        }
+    } else if let Some(expression) = formula.trim_start().strip_prefix('=') {
+        match parser::parse_formula(expression) {
+            Ok(_) => FormulaValidationOutput {
+                valid: true,
+                error: None,
+            },
+            Err(error) => FormulaValidationOutput {
+                valid: false,
+                error: Some(error.as_str().to_string()),
+            },
+        }
+    } else {
+        FormulaValidationOutput {
+            valid: true,
+            error: None,
+        }
+    };
+
+    let bytes = serde_json::to_vec(&output).unwrap_or_else(|_| {
+        br#"{"valid":false,"error":"Formula validation serialization failed"}"#.to_vec()
+    });
+
+    RESULT.with(|result| {
+        *result.borrow_mut() = bytes;
+    });
+}
+
+fn collect_formula_references(expression: &parser::Expr, references: &mut Vec<FormulaReferenceOutput>) {
+    match expression {
+        parser::Expr::Ref(reference) => {
+            references.push(FormulaReferenceOutput {
+                row: reference.row,
+                column: reference.column,
+            });
+        }
+        parser::Expr::Range(range) => {
+            references.push(FormulaReferenceOutput {
+                row: range.start.row,
+                column: range.start.column,
+            });
+            references.push(FormulaReferenceOutput {
+                row: range.end.row,
+                column: range.end.column,
+            });
+        }
+        parser::Expr::Unary { value, .. }
+        | parser::Expr::Percent(value) => {
+            collect_formula_references(value, references);
+        }
+        parser::Expr::Binary { left, right, .. } => {
+            collect_formula_references(left, references);
+            collect_formula_references(right, references);
+        }
+        parser::Expr::Call { args, .. } => {
+            for argument in args {
+                collect_formula_references(argument, references);
+            }
+        }
+        _ => {}
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn parse_formula_refs(pointer: *const u8, length: usize) {
+    let input = if pointer.is_null() || length == 0 {
+        &[]
+    } else {
+        std::slice::from_raw_parts(pointer, length)
+    };
+
+    let formula = serde_json::from_slice::<FormulaInput>(input)
+        .map(|request| request.formula)
+        .unwrap_or_default();
+
+    let (valid, references, error) = if formula.trim().is_empty() {
+        (true, Vec::new(), None)
+    } else if let Some(expression) = formula.trim_start().strip_prefix('=') {
+        match parser::parse_formula(expression) {
+            Ok(parsed) => {
+                let mut references = Vec::new();
+                collect_formula_references(&parsed, &mut references);
+                (true, references, None)
+            }
+            Err(error) => (false, Vec::new(), Some(error.as_str().to_string())),
+        }
+    } else {
+        (true, Vec::new(), None)
+    };
+
+    let output = FormulaParseOutput {
+        valid,
+        references,
+        error,
+    };
+
+    let bytes = serde_json::to_vec(&output).unwrap_or_else(|_| {
+        br#"{"valid":false,"references":[],"error":"Formula reference serialization failed"}"#.to_vec()
+    });
+
+    RESULT.with(|result| {
+        *result.borrow_mut() = bytes;
+    });
+}

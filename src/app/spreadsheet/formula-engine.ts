@@ -7,6 +7,8 @@ interface FormulaEngineExports {
   evaluate(pointer: number, length: number): void;
   export_csv(pointer: number, length: number): void;
   export_xlsx(pointer: number, length: number): void;
+  validate_formula(pointer: number, length: number): void;
+  parse_formula_refs(pointer: number, length: number): void;
   result_ptr(): number;
   result_len(): number;
 }
@@ -104,6 +106,65 @@ export class FormulaEngine {
     }
 
     return output.slice(1);
+  }
+
+  async validateFormula(formula: string): Promise<{ valid: boolean; error: string | null }> {
+    const wasm = await this.load();
+    const input = this.encoder.encode(JSON.stringify({ formula }));
+    const pointer = wasm.alloc(input.length);
+
+    try {
+      new Uint8Array(wasm.memory.buffer, pointer, input.length).set(input);
+      wasm.validate_formula(pointer, input.length);
+    } finally {
+      wasm.dealloc(pointer, input.length);
+    }
+
+    const outputPointer = wasm.result_ptr();
+    const outputLength = wasm.result_len();
+    const output = this.decoder.decode(
+      new Uint8Array(wasm.memory.buffer, outputPointer, outputLength)
+    );
+    const result = JSON.parse(output) as { valid?: boolean; error?: string | null };
+
+    return {
+      valid: result.valid !== false,
+      error: result.error ?? null,
+    };
+  }
+
+  async parseFormulaReferences(formula: string): Promise<{
+    valid: boolean;
+    references: Array<{ row: number; column: number }>;
+    error: string | null;
+  }> {
+    const wasm = await this.load();
+    const input = this.encoder.encode(JSON.stringify({ formula }));
+    const pointer = wasm.alloc(input.length);
+
+    try {
+      new Uint8Array(wasm.memory.buffer, pointer, input.length).set(input);
+      wasm.parse_formula_refs(pointer, input.length);
+    } finally {
+      wasm.dealloc(pointer, input.length);
+    }
+
+    const outputPointer = wasm.result_ptr();
+    const outputLength = wasm.result_len();
+    const output = this.decoder.decode(
+      new Uint8Array(wasm.memory.buffer, outputPointer, outputLength)
+    );
+    const result = JSON.parse(output) as {
+      valid?: boolean;
+      references?: Array<{ row: number; column: number }>;
+      error?: string | null;
+    };
+
+    return {
+      valid: result.valid !== false,
+      references: result.references ?? [],
+      error: result.error ?? null,
+    };
   }
 
   private load(): Promise<FormulaEngineExports> {
