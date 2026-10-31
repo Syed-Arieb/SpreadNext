@@ -1263,39 +1263,9 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   }
 
   moveSelection(direction: Exclude<MoveDirection, 'none'>): void {
-    let row = this.activeCell.row;
-    let column = this.activeCell.column;
-
-    if (direction === 'up') {
-      row -= 1;
-    } else if (direction === 'down') {
-      row += 1;
-    } else if (direction === 'left') {
-      column -= 1;
-    } else {
-      column += 1;
-    }
-
-    let guard = 0;
-    while (
-      guard < this.rows + this.columns + 5 &&
-      row >= 0 &&
-      row < this.rows &&
-      column >= 0 &&
-      column < this.columns &&
-      this.isMergedHidden(row, column)
-    ) {
-      if (direction === 'up') {
-        row -= 1;
-      } else if (direction === 'down') {
-        row += 1;
-      } else if (direction === 'left') {
-        column -= 1;
-      } else {
-        column += 1;
-      }
-      guard += 1;
-    }
+    const next = this.stepCell(this.activeCell.row, this.activeCell.column, direction);
+    let row = next.row;
+    let column = next.column;
 
     if (row >= this.rows) {
       this.addRow();
@@ -1315,39 +1285,9 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   }
 
   extendSelectionKeyboard(direction: 'up' | 'down' | 'left' | 'right'): void {
-    let row = this.activeCell.row;
-    let column = this.activeCell.column;
-
-    if (direction === 'up') {
-      row -= 1;
-    } else if (direction === 'down') {
-      row += 1;
-    } else if (direction === 'left') {
-      column -= 1;
-    } else {
-      column += 1;
-    }
-
-    let guard = 0;
-    while (
-      guard < this.rows + this.columns + 5 &&
-      row >= 0 &&
-      row < this.rows &&
-      column >= 0 &&
-      column < this.columns &&
-      this.isMergedHidden(row, column)
-    ) {
-      if (direction === 'up') {
-        row -= 1;
-      } else if (direction === 'down') {
-        row += 1;
-      } else if (direction === 'left') {
-        column -= 1;
-      } else {
-        column += 1;
-      }
-      guard += 1;
-    }
+    const next = this.stepCell(this.activeCell.row, this.activeCell.column, direction);
+    let row = next.row;
+    let column = next.column;
 
     if (row >= this.rows) {
       this.addRow();
@@ -3502,6 +3442,64 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
 
   private clamp(value: number, min: number, max: number): number {
     return Math.min(Math.max(value, min), max);
+  }
+
+  private stepCell(row: number, column: number, direction: 'up' | 'down' | 'left' | 'right'): Selection {
+    const currentMerge = this.mergedAt(row, column);
+    let nextRow = row;
+    let nextColumn = column;
+
+    if (direction === 'up') {
+      nextRow -= 1;
+    } else if (direction === 'down') {
+      nextRow += 1;
+    } else if (direction === 'left') {
+      nextColumn -= 1;
+    } else {
+      nextColumn += 1;
+    }
+
+    let guard = 0;
+    while (
+      guard < this.rows + this.columns + 10 &&
+      nextRow >= 0 &&
+      nextRow < this.rows &&
+      nextColumn >= 0 &&
+      nextColumn < this.columns
+    ) {
+      const candidateMerge = this.mergedAt(nextRow, nextColumn);
+
+      if (!candidateMerge) {
+        break;
+      }
+
+      const sameMerge =
+        currentMerge !== null &&
+        candidateMerge.row === currentMerge.row &&
+        candidateMerge.column === currentMerge.column;
+
+      if (sameMerge) {
+        if (direction === 'up') {
+          nextRow = candidateMerge.row - 1;
+        } else if (direction === 'down') {
+          nextRow = candidateMerge.row + candidateMerge.rows;
+        } else if (direction === 'left') {
+          nextColumn = candidateMerge.column - 1;
+        } else {
+          nextColumn = candidateMerge.column + candidateMerge.columns;
+        }
+        guard += 1;
+        continue;
+      }
+
+      nextRow = candidateMerge.row;
+      nextColumn = candidateMerge.column;
+      break;
+    }
+
+    nextRow = this.clamp(nextRow, 0, this.rows - 1);
+    nextColumn = this.clamp(nextColumn, 0, this.columns - 1);
+    return { row: nextRow, column: nextColumn };
   }
 
   private clampSelection(row: number, column: number): Selection {
