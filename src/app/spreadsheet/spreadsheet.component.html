@@ -187,15 +187,10 @@
           <span class="menu-check" aria-hidden="true"></span>
           Cell borders...
         </button>
-        <button type="button" (click)="mergeSelection(); closeMenus()" [disabled]="!canMergeSelection()">
+        <button type="button" [disabled]="!canMergeSelection() && !canUnmergeSelection()" (click)="canUnmergeSelection() ? unmergeSelection() : mergeSelection(); closeMenus()">
           <span class="menu-icon" aria-hidden="true"><ng-icon name="lucideTable"></ng-icon></span>
           <span class="menu-check" aria-hidden="true"></span>
-          Merge cells
-        </button>
-        <button type="button" (click)="unmergeSelection(); closeMenus()" [disabled]="!canUnmergeSelection()">
-          <span class="menu-icon" aria-hidden="true"><ng-icon name="lucideTable"></ng-icon></span>
-          <span class="menu-check" aria-hidden="true"></span>
-          Unmerge cells
+          {{ canUnmergeSelection() ? 'Unmerge cells' : 'Merge cells' }}
         </button>
         <hr />
         <button type="button" (click)="clearFormatting(); closeMenus()" [disabled]="!selectionHasFormatting">
@@ -292,13 +287,15 @@
     <span class="tool-divider" aria-hidden="true"></span>
 
     <div class="tool-group">
-      <button type="button" class="tool tool-label" title="Merge selected cells" [disabled]="!canMergeSelection()" (click)="mergeSelection()">
+      <button
+        type="button"
+        class="tool tool-label"
+        [title]="canUnmergeSelection() ? 'Unmerge selected cells' : 'Merge selected cells'"
+        [disabled]="!canMergeSelection() && !canUnmergeSelection()"
+        (click)="canUnmergeSelection() ? unmergeSelection() : mergeSelection()"
+      >
         <ng-icon name="lucideTable" aria-hidden="true"></ng-icon>
-        Merge
-      </button>
-      <button type="button" class="tool tool-label" title="Unmerge selected cells" [disabled]="!canUnmergeSelection()" (click)="unmergeSelection()">
-        <ng-icon name="lucideTable" aria-hidden="true"></ng-icon>
-        Unmerge
+        {{ canUnmergeSelection() ? 'Unmerge' : 'Merge' }}
       </button>
     </div>
 
@@ -1137,13 +1134,15 @@
               <span class="context-item-icon" aria-hidden="true"><app-border-icon preset="all"></app-border-icon></span>
               <span class="context-label">Cell borders...</span>
             </button>
-            <button type="button" class="context-item" role="menuitem" [disabled]="!canMergeSelection()" (click)="mergeSelection(); closeContextMenu()">
+            <button
+              type="button"
+              class="context-item"
+              role="menuitem"
+              [disabled]="!canMergeSelection() && !canUnmergeSelection()"
+              (click)="canUnmergeSelection() ? unmergeSelection() : mergeSelection(); closeContextMenu()"
+            >
               <span class="context-item-icon" aria-hidden="true"><ng-icon name="lucideTable"></ng-icon></span>
-              <span class="context-label">Merge cells</span>
-            </button>
-            <button type="button" class="context-item" role="menuitem" [disabled]="!canUnmergeSelection()" (click)="unmergeSelection(); closeContextMenu()">
-              <span class="context-item-icon" aria-hidden="true"><ng-icon name="lucideTable"></ng-icon></span>
-              <span class="context-label">Unmerge cells</span>
+              <span class="context-label">{{ canUnmergeSelection() ? 'Unmerge cells' : 'Merge cells' }}</span>
             </button>
             <hr />
             <button
