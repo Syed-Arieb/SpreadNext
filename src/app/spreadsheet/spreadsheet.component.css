@@ -395,6 +395,20 @@
   border-radius: 2px;
 }
 
+.text-color-tool {
+  position: relative;
+}
+
+.text-color-swatch {
+  position: absolute;
+  right: 8px;
+  bottom: 4px;
+  left: 8px;
+  height: 3px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+}
+
 .formula-bar {
   flex: 0 0 auto;
   display: flex;

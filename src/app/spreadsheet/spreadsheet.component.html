@@ -258,8 +258,8 @@
         <span
           class="text-color-swatch"
           aria-hidden="true"
-          [style.color]="cellValueColor(activeCell.row, activeCell.column) ?? 'var(--text)'"
-        >A</span>
+          [style.background-color]="cellValueColor(activeCell.row, activeCell.column) ?? 'var(--text)'"
+        ></span>
       </button>
       <button
         type="button"
@@ -922,7 +922,7 @@
           />
           <span class="style-color-value">{{ textColorPickerValue }}</span>
           <button type="button" class="confirm-button style-clear-button" (click)="applyTextColor(null)">
-            No color
+            Default
           </button>
         </div>
 
