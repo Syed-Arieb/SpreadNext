@@ -164,6 +164,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   @Output() titleReset = new EventEmitter<void>();
 
   activeWorkbookIndex = 0;
+  saveStatus: 'saved' | 'saving' = 'saved';
   workbooks: Workbook[] = [];
 
   readonly fillColors = FILL_COLORS;
@@ -3145,6 +3146,8 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   }
 
   private scheduleSave(): void {
+    this.saveStatus = 'saving';
+
     if (this.saveTimer) {
       clearTimeout(this.saveTimer);
     }
@@ -3177,6 +3180,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
         activeIndex: this.activeWorkbookIndex
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      this.saveStatus = 'saved';
       this.saved.emit();
     } catch {
       return;

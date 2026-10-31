@@ -1552,3 +1552,30 @@
     padding: 5px 8px;
   }
 }
+
+.status-save-indicator {
+  display: inline-flex;
+  align-items: center;
+  width: 10px;
+  height: 10px;
+  cursor: default;
+}
+
+.status-save-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #22c55e;
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.35);
+}
+
+.status-save-indicator.is-saving .status-save-dot {
+  background: #f59e0b;
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.35);
+  animation: status-save-pulse 0.8s ease-in-out infinite;
+}
+
+@keyframes status-save-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
