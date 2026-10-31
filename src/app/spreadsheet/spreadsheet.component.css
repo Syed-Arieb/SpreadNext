@@ -833,6 +833,11 @@
   opacity: 0.7;
 }
 
+.sheet-tab:focus-within .sheet-tab-action,
+.sheet-tab:focus-within .sheet-tab-close {
+  opacity: 0.7;
+}
+
 .sheet-tab .sheet-tab-close {
   position: absolute;
   right: 4px;

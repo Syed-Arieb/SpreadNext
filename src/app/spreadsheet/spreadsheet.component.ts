@@ -105,11 +105,6 @@ const MIN_COLUMN_WIDTH = 56;
 const MAX_COLUMN_WIDTH = 480;
 const ROW_HEADER_WIDTH = 48;
 const MAX_HISTORY = 100;
-interface Workbook {
-  id: string;
-  name: string;
-  snapshot: SheetSnapshot;
-}
 
 const STORAGE_KEY = 'spreadnext-workbooks';
 const REFERENCE_COLORS = ['#3b82f6', '#ef4444', '#10b981', '#a855f7', '#f59e0b', '#06b6d4'];
@@ -318,7 +313,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     this.activeCell = { row: 0, column: 0 };
     this.formulaValue = this.cellAt(0, 0).value;
     this.resetDisplayValues();
-    this.history = [this.workbooks[this.activeWorkbookIndex].snapshot];
+    this.history = [this.currentSnapshot()];
     this.historyIndex = 0;
     this.updateHistoryFlags();
     this.scheduleRecalculate();
@@ -1642,8 +1637,12 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     this.pasteValues(values);
 
     if (this.clipboard?.cut) {
-      this.clearRange(this.clipboard.origin, values);
+      const cleared = this.clearRange(this.clipboard.origin, values);
       this.clipboard = null;
+      if (cleared) {
+        this.formulaValue = this.activeCellData.value;
+        this.pushHistory();
+      }
     }
 
     this.focusGrid();
@@ -1661,8 +1660,12 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     this.pasteValues(values);
 
     if (this.clipboard?.cut) {
-      this.clearRange(this.clipboard.origin, values);
+      const cleared = this.clearRange(this.clipboard.origin, values);
       this.clipboard = null;
+      if (cleared) {
+        this.formulaValue = this.activeCellData.value;
+        this.pushHistory();
+      }
     }
 
     this.focusGrid();
@@ -1750,6 +1753,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
 
     this.historyIndex -= 1;
     this.restoreSnapshot(this.history[this.historyIndex]);
+    this.workbooks[this.activeWorkbookIndex].snapshot = this.currentSnapshot();
     this.updateHistoryFlags();
     this.sheetChange.emit();
     this.scheduleSave();
@@ -1765,6 +1769,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     this.commitEdit('none', false);
     this.historyIndex += 1;
     this.restoreSnapshot(this.history[this.historyIndex]);
+    this.workbooks[this.activeWorkbookIndex].snapshot = this.currentSnapshot();
     this.updateHistoryFlags();
     this.sheetChange.emit();
     this.scheduleSave();
@@ -1824,6 +1829,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   }
 
   addWorkbook(): void {
+    this.commitRename();
     this.commitEdit('none', false);
 
     if (this.formulaSource === 'formula') {
@@ -1876,11 +1882,12 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     this.focusGrid();
   }
 
-  switchWorkbook(index: number): void {
+  switchWorkbook(index: number, focusGridAfter = true): void {
     if (index < 0 || index >= this.workbooks.length || index === this.activeWorkbookIndex) {
       return;
     }
 
+    this.commitRename();
     this.commitEdit('none', false);
 
     if (this.formulaSource === 'formula') {
@@ -1913,7 +1920,10 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     this.sheetChange.emit();
     this.scheduleSave();
     this.scheduleRecalculate();
-    this.focusGrid();
+
+    if (focusGridAfter) {
+      this.focusGrid();
+    }
   }
 
   private currentSnapshot(): SheetSnapshot {
@@ -1938,6 +1948,8 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const removedActive = this.activeWorkbookIndex === index;
+
     this.workbooks[this.activeWorkbookIndex].snapshot = this.currentSnapshot();
 
     if (index < this.activeWorkbookIndex) {
@@ -1946,28 +1958,46 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
       this.activeWorkbookIndex = Math.max(0, this.activeWorkbookIndex - 1);
     }
 
+    if (this.renamingWorkbookId === id) {
+      this.renamingWorkbookId = null;
+      this.renameValue = '';
+    }
+
+    if (this.sheetTabContextMenuTargetId === id) {
+      this.closeSheetTabContextMenu();
+    }
+
     this.workbooks = this.workbooks.filter(w => w.id !== id);
 
-    const workbook = this.workbooks[this.activeWorkbookIndex];
-    this.rows = workbook.snapshot.rows;
-    this.columns = workbook.snapshot.columns;
-    this.cellData = workbook.snapshot.cells.map(row => row.map(cell => ({
-      value: cell.value,
-      style: cloneCellStyle(cell.style)
-    })));
-    this.columnWidths = this.normalizeColumnWidths(workbook.snapshot.columnWidths, this.columns);
-    this.rebuildIndices();
-    this.activeCell = { row: 0, column: 0 };
-    this.selectionAnchor = { ...this.activeCell };
-    this.formulaValue = this.activeCellData.value;
-    this.resetDisplayValues();
-    this.history = [this.currentSnapshot()];
-    this.historyIndex = 0;
-    this.updateHistoryFlags();
-    this.workbooks[this.activeWorkbookIndex].snapshot = this.currentSnapshot();
+    if (removedActive) {
+      const workbook = this.workbooks[this.activeWorkbookIndex];
+      this.rows = workbook.snapshot.rows;
+      this.columns = workbook.snapshot.columns;
+      this.cellData = workbook.snapshot.cells.map(row => row.map(cell => ({
+        value: cell.value,
+        style: cloneCellStyle(cell.style)
+      })));
+      this.columnWidths = this.normalizeColumnWidths(workbook.snapshot.columnWidths, this.columns);
+      this.rebuildIndices();
+      this.activeCell = { row: 0, column: 0 };
+      this.selectionAnchor = { ...this.activeCell };
+      this.formulaValue = this.activeCellData.value;
+      this.resetDisplayValues();
+      this.history = [this.currentSnapshot()];
+      this.historyIndex = 0;
+      this.updateHistoryFlags();
+      this.workbooks[this.activeWorkbookIndex].snapshot = this.currentSnapshot();
+    } else {
+      this.workbooks[this.activeWorkbookIndex].snapshot = this.currentSnapshot();
+    }
+
     this.sheetChange.emit();
     this.scheduleSave();
     this.scheduleRecalculate();
+
+    if (removedActive) {
+      this.focusGrid();
+    }
   }
 
   startRename(workbook: Workbook): void {
@@ -1993,19 +2023,31 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     }
 
     const workbook = this.workbooks.find(item => item.id === this.renamingWorkbookId);
-    if (workbook && this.renameValue.trim()) {
-      workbook.name = this.renameValue.trim();
+    let changed = false;
+
+    if (workbook) {
+      const newName = this.renameValue.trim();
+      if (newName && workbook.name !== newName) {
+        workbook.name = newName;
+        changed = true;
+      }
     }
 
     this.renamingWorkbookId = null;
     this.renameValue = '';
-    this.sheetChange.emit();
-    this.scheduleSave();
+
+    if (changed) {
+      this.sheetChange.emit();
+      this.scheduleSave();
+    }
+
+    setTimeout(() => this.focusGrid());
   }
 
   cancelRename(): void {
     this.renamingWorkbookId = null;
     this.renameValue = '';
+    setTimeout(() => this.focusGrid());
   }
 
   requestRemoveWorkbook(id: string): void {
@@ -2017,6 +2059,8 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     if (!workbook) {
       return;
     }
+
+    this.closeSheetTabContextMenu();
 
     this.commitEdit('none', false);
 
@@ -2066,6 +2110,8 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
 
     if (target?.isConnected && target.getClientRects().length > 0) {
       target.focus();
+    } else {
+      this.focusGrid();
     }
   }
 
@@ -2075,6 +2121,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
       return;
     }
 
+    this.commitRename();
     this.commitEdit('none', false);
 
     if (this.formulaSource === 'formula') {
@@ -2112,27 +2159,33 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
       this.activeWorkbookIndex += 1;
     }
 
-    const workbook = this.workbooks[this.activeWorkbookIndex];
-    this.rows = workbook.snapshot.rows;
-    this.columns = workbook.snapshot.columns;
-    this.cellData = workbook.snapshot.cells.map(row => row.map(cell => ({
-      value: cell.value,
-      style: cloneCellStyle(cell.style)
-    })));
-    this.columnWidths = this.normalizeColumnWidths(workbook.snapshot.columnWidths, this.columns);
-    this.rebuildIndices();
-    this.activeCell = { row: 0, column: 0 };
-    this.selectionAnchor = { row: 0, column: 0 };
-    this.formulaValue = this.cellAt(0, 0).value;
-    this.resetDisplayValues();
-    this.history = [this.currentSnapshot()];
-    this.historyIndex = 0;
-    this.updateHistoryFlags();
-    this.workbooks[this.activeWorkbookIndex].snapshot = this.currentSnapshot();
-    this.sheetChange.emit();
-    this.scheduleSave();
-    this.scheduleRecalculate();
-    this.focusGrid();
+    if (duplicatingActive) {
+      const workbook = this.workbooks[this.activeWorkbookIndex];
+      this.rows = workbook.snapshot.rows;
+      this.columns = workbook.snapshot.columns;
+      this.cellData = workbook.snapshot.cells.map(row => row.map(cell => ({
+        value: cell.value,
+        style: cloneCellStyle(cell.style)
+      })));
+      this.columnWidths = this.normalizeColumnWidths(workbook.snapshot.columnWidths, this.columns);
+      this.rebuildIndices();
+      this.activeCell = { row: 0, column: 0 };
+      this.selectionAnchor = { row: 0, column: 0 };
+      this.formulaValue = this.cellAt(0, 0).value;
+      this.resetDisplayValues();
+      this.history = [this.currentSnapshot()];
+      this.historyIndex = 0;
+      this.updateHistoryFlags();
+      this.workbooks[this.activeWorkbookIndex].snapshot = this.currentSnapshot();
+      this.sheetChange.emit();
+      this.scheduleSave();
+      this.scheduleRecalculate();
+      this.focusGrid();
+    } else {
+      this.workbooks[this.activeWorkbookIndex].snapshot = this.currentSnapshot();
+      this.sheetChange.emit();
+      this.scheduleSave();
+    }
   }
 
   moveWorkbook(id: string, delta: number): void {
@@ -2146,6 +2199,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
       return;
     }
 
+    this.commitRename();
     this.commitEdit('none', false);
 
     if (this.formulaSource === 'formula') {
@@ -2161,38 +2215,26 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     const newActiveIndex = this.workbooks.findIndex(item => item.id === activeId);
     this.activeWorkbookIndex = newActiveIndex >= 0 ? newActiveIndex : this.activeWorkbookIndex;
 
-    const workbook = this.workbooks[this.activeWorkbookIndex];
-    this.rows = workbook.snapshot.rows;
-    this.columns = workbook.snapshot.columns;
-    this.cellData = workbook.snapshot.cells.map(row => row.map(cell => ({
-      value: cell.value,
-      style: cloneCellStyle(cell.style)
-    })));
-    this.columnWidths = this.normalizeColumnWidths(workbook.snapshot.columnWidths, this.columns);
-    this.rebuildIndices();
-    this.activeCell = { row: 0, column: 0 };
-    this.selectionAnchor = { row: 0, column: 0 };
-    this.formulaValue = this.cellAt(0, 0).value;
-    this.resetDisplayValues();
-    this.history = [this.currentSnapshot()];
-    this.historyIndex = 0;
-    this.updateHistoryFlags();
     this.workbooks[this.activeWorkbookIndex].snapshot = this.currentSnapshot();
     this.sheetChange.emit();
     this.scheduleSave();
-    this.scheduleRecalculate();
-    this.focusGrid();
   }
 
   onSheetTabContextMenu(event: MouseEvent, id: string): void {
     event.preventDefault();
     event.stopPropagation();
 
+    this.commitRename();
     this.commitEdit('none', false);
 
     if (this.formulaSource === 'formula') {
       this.commitFormula();
     }
+
+    this.closeExportMenu();
+    this.closeFillDialog();
+    this.closeBorderDialog();
+    this.closeContextMenu();
 
     this.sheetTabContextMenuTargetId = id;
     this.sheetTabContextMenuX = event.clientX;
@@ -2271,7 +2313,12 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   }
 
   onWorkbookDragOver(event: DragEvent, index: number): void {
-    if (this.draggedWorkbookIndex === null || this.draggedWorkbookIndex === index) {
+    if (this.draggedWorkbookIndex === null) {
+      return;
+    }
+
+    if (this.draggedWorkbookIndex === index) {
+      event.preventDefault();
       return;
     }
 
@@ -2300,6 +2347,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
       return;
     }
 
+    this.commitRename();
     this.commitEdit('none', false);
 
     if (this.formulaSource === 'formula') {
@@ -2310,9 +2358,6 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     this.workbooks[this.activeWorkbookIndex].snapshot = this.currentSnapshot();
 
     let to = targetIndex;
-    if (draggedIndex < to) {
-      to -= 1;
-    }
 
     const [moved] = this.workbooks.splice(draggedIndex, 1);
     this.workbooks.splice(to, 0, moved);
@@ -2320,27 +2365,9 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     const newActiveIndex = this.workbooks.findIndex(item => item.id === activeId);
     this.activeWorkbookIndex = newActiveIndex >= 0 ? newActiveIndex : this.activeWorkbookIndex;
 
-    const workbook = this.workbooks[this.activeWorkbookIndex];
-    this.rows = workbook.snapshot.rows;
-    this.columns = workbook.snapshot.columns;
-    this.cellData = workbook.snapshot.cells.map(row => row.map(cell => ({
-      value: cell.value,
-      style: cloneCellStyle(cell.style)
-    })));
-    this.columnWidths = this.normalizeColumnWidths(workbook.snapshot.columnWidths, this.columns);
-    this.rebuildIndices();
-    this.activeCell = { row: 0, column: 0 };
-    this.selectionAnchor = { row: 0, column: 0 };
-    this.formulaValue = this.cellAt(0, 0).value;
-    this.resetDisplayValues();
-    this.history = [this.currentSnapshot()];
-    this.historyIndex = 0;
-    this.updateHistoryFlags();
     this.workbooks[this.activeWorkbookIndex].snapshot = this.currentSnapshot();
     this.sheetChange.emit();
     this.scheduleSave();
-    this.scheduleRecalculate();
-    this.focusGrid();
 
     this.draggedWorkbookIndex = null;
     this.dragOverWorkbookIndex = null;
@@ -2380,8 +2407,8 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     }
 
     event.preventDefault();
-    tabs[nextIndex]?.focus();
-    this.switchWorkbook(nextIndex);
+    this.switchWorkbook(nextIndex, false);
+    setTimeout(() => tabs[nextIndex]?.focus());
   }
 
   async exportCsv(): Promise<void> {
@@ -2963,8 +2990,11 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     const targetRow = this.activeCell.row;
     const targetColumn = this.activeCell.column;
     const width = values.reduce((max, row) => Math.max(max, row.length), 0);
+    const rowsBefore = this.rows;
+    const columnsBefore = this.columns;
     this.ensureCapacity(targetRow + values.length, targetColumn + width);
-    let changed = false;
+    const dimensionsChanged = this.rows !== rowsBefore || this.columns !== columnsBefore;
+    let changed = dimensionsChanged;
 
     for (let row = 0; row < values.length; row += 1) {
       for (let column = 0; column < values[row].length; column += 1) {
@@ -2984,15 +3014,20 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     this.pushHistory();
   }
 
-  private clearRange(origin: Selection, values: string[][]): void {
+  private clearRange(origin: Selection, values: string[][]): boolean {
+    let cleared = false;
+
     for (let row = 0; row < values.length; row += 1) {
       for (let column = 0; column < values[row].length; column += 1) {
         const cell = this.cellData[origin.row + row]?.[origin.column + column];
-        if (cell) {
+        if (cell && cell.value !== '') {
           cell.value = '';
+          cleared = true;
         }
       }
     }
+
+    return cleared;
   }
 
   private ensureCapacity(rows: number, columns: number): void {
