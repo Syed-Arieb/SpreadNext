@@ -168,6 +168,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
   workbooks: Workbook[] = [];
 
   readonly fillColors = FILL_COLORS;
+  readonly fontSizes = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 36];
   readonly borderLineStyles: { value: BorderLineStyle; label: string }[] = [
     { value: 'thin', label: 'Thin' },
     { value: 'medium', label: 'Medium' },
@@ -1479,6 +1480,29 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     if (changed) {
       this.pushHistory();
     }
+  }
+
+  setFontSize(size: number | null): void {
+    const normalized = size === null || !Number.isFinite(size)
+      ? null
+      : Math.min(72, Math.max(6, Math.round(size)));
+
+    let changed = false;
+    this.forEachSelectedCell(cell => {
+      if (cell.style.fontSize !== normalized) {
+        cell.style.fontSize = normalized;
+        changed = true;
+      }
+    });
+
+    if (changed) {
+      this.pushHistory();
+    }
+  }
+
+  onFontSizeChange(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value;
+    this.setFontSize(value === '' ? null : Number(value));
   }
 
   openFillDialog(): void {
@@ -3130,7 +3154,10 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
         align: style.align === 'center' || style.align === 'right' ? style.align : 'left',
          background: normalizeColor(style.background),
          color: normalizeColor(style.color),
-         borders: normalizeCellBorders(style.borders)
+         borders: normalizeCellBorders(style.borders),
+         fontSize: typeof style.fontSize === 'number' && Number.isFinite(style.fontSize)
+           ? Math.min(72, Math.max(6, Math.round(style.fontSize)))
+           : null
       }
     };
   }

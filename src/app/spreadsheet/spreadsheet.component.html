@@ -232,6 +232,23 @@
     <span class="tool-divider" aria-hidden="true"></span>
 
     <div class="tool-group">
+      <select
+        class="tool font-size-select"
+        [value]="activeCellData.style.fontSize ?? ''"
+        (change)="onFontSizeChange($event)"
+        title="Font size"
+        aria-label="Font size"
+      >
+        <option value="">Default</option>
+        @for (size of fontSizes; track size) {
+          <option [value]="size">{{ size }}</option>
+        }
+      </select>
+    </div>
+
+    <span class="tool-divider" aria-hidden="true"></span>
+
+    <div class="tool-group">
       <button type="button" class="tool" title="Align left" aria-label="Align left" [class.is-active]="activeCellData.style.align === 'left'" (click)="setAlignment('left')">
         <ng-icon name="lucideAlignLeft" aria-hidden="true"></ng-icon>
       </button>
@@ -450,6 +467,7 @@
                     (keyup)="onEditorKeyup($event)"
                     (click)="onEditorCaret()"
                     (blur)="onEditorBlur()"
+                    [style.font-size]="cellAt(row, column).style.fontSize ? cellAt(row, column).style.fontSize + 'pt' : null"
                   />
                 } @else {
                   <span
@@ -461,6 +479,7 @@
                     [class.error]="displayAt(row, column).startsWith('#')"
                     [style.text-align]="cellAt(row, column).style.align"
                     [style.color]="cellValueColor(row, column)"
+                    [style.font-size]="cellAt(row, column).style.fontSize ? cellAt(row, column).style.fontSize + 'pt' : null"
                   >{{ displayAt(row, column) }}</span>
                 }
               </td>

@@ -794,3 +794,5 @@
   position: relative;
   white-space: nowrap;
 }
+
+.font-size-select { min-width: 64px; height: 30px; border: 1px solid var(--border-color, #d1d5db); border-radius: 6px; background: var(--cell-bg, inherit); color: inherit; padding: 0 8px; font-family: inherit; font-size: 13px; cursor: pointer; }

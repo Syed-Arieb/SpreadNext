@@ -16,6 +16,7 @@ export interface CellStyle {
   background: string | null;
   color: string | null;
   borders: CellBorders;
+  fontSize: number | null;
 }
 
 export const DEFAULT_CELL_STYLE: CellStyle = {
@@ -26,7 +27,8 @@ export const DEFAULT_CELL_STYLE: CellStyle = {
   align: 'left',
   background: null,
   color: null,
-  borders: createCellBorders()
+  borders: createCellBorders(),
+  fontSize: null
 };
 
 export function cloneCellStyle(style: CellStyle): CellStyle {
@@ -48,6 +50,7 @@ export function hasCellFormatting(style: CellStyle): boolean {
     style.align !== DEFAULT_CELL_STYLE.align ||
     style.background !== null ||
     style.color !== null ||
+    style.fontSize !== null ||
     hasCellBorders(style.borders);
 }
 
