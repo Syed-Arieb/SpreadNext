@@ -306,7 +306,7 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     if (!this.restore()) {
-      this.workbooks = [{
+      const freshWorkbook: Workbook = {
         id: crypto.randomUUID(),
         name: 'Sheet1',
         snapshot: {
@@ -318,16 +318,32 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
               style: cloneCellStyle(cell.style)
             }))
           ),
-           columnWidths: Array(DEFAULT_COLUMNS).fill(DEFAULT_COLUMN_WIDTH),
-           mergedCells: []
-         }
-       }];
+          columnWidths: Array(DEFAULT_COLUMNS).fill(DEFAULT_COLUMN_WIDTH),
+          mergedCells: []
+        }
+      };
+
+      this.workbooks = [freshWorkbook];
       this.activeWorkbookIndex = 0;
+
+      const workbook = freshWorkbook;
+      this.rows = workbook.snapshot.rows;
+      this.columns = workbook.snapshot.columns;
+      this.cellData = workbook.snapshot.cells.map(row =>
+        row.map(cell => ({
+          value: cell.value,
+          style: cloneCellStyle(cell.style)
+        }))
+      );
+      this.columnWidths = this.normalizeColumnWidths(workbook.snapshot.columnWidths, this.columns);
+      this.mergedCells = [];
     }
 
     this.rebuildIndices();
+    this.ensureCellData();
     this.columnWidths = this.normalizeColumnWidths(this.columnWidths, this.columns);
     this.activeCell = { row: 0, column: 0 };
+    this.selectionAnchor = { ...this.activeCell };
     this.formulaValue = this.cellAt(0, 0).value;
     this.resetDisplayValues();
     this.history = [this.currentSnapshot()];
@@ -3130,6 +3146,45 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
     });
   }
 
+  private ensureCellData(): void {
+    if (!Array.isArray(this.cellData)) {
+      this.cellData = [];
+    }
+
+    if (this.cellData.length < this.rows) {
+      while (this.cellData.length < this.rows) {
+        this.cellData.push([]);
+      }
+    } else if (this.cellData.length > this.rows) {
+      this.cellData.length = this.rows;
+    }
+
+    for (let row = 0; row < this.rows; row += 1) {
+      if (!Array.isArray(this.cellData[row])) {
+        this.cellData[row] = [];
+      }
+
+      if (this.cellData[row].length < this.columns) {
+        while (this.cellData[row].length < this.columns) {
+          this.cellData[row].push(this.createCell());
+        }
+      } else if (this.cellData[row].length > this.columns) {
+        this.cellData[row].length = this.columns;
+      }
+
+      for (let column = 0; column < this.columns; column += 1) {
+        const cell = this.cellData[row][column];
+        if (!cell || typeof cell.value !== 'string' || !cell.style) {
+          this.cellData[row][column] = this.normalizeCell(cell);
+        }
+      }
+    }
+
+    if (this.columnWidths.length !== this.columns) {
+      this.columnWidths = this.normalizeColumnWidths(this.columnWidths, this.columns);
+    }
+  }
+
   private restore(): boolean {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -3150,16 +3205,31 @@ export class SpreadsheetComponent implements OnInit, OnDestroy {
 
       this.workbooks = data.workbooks;
       this.activeWorkbookIndex = data.activeIndex;
-      
+
       const workbook = this.workbooks[this.activeWorkbookIndex];
-      this.rows = workbook.snapshot.rows;
-      this.columns = workbook.snapshot.columns;
-      this.cellData = workbook.snapshot.cells.map(row => row.map(cell => ({
-        value: cell.value,
-        style: cloneCellStyle(cell.style)
-      })));
-      this.columnWidths = this.normalizeColumnWidths(workbook.snapshot.columnWidths, this.columns);
-      this.mergedCells = workbook.snapshot.mergedCells ? workbook.snapshot.mergedCells.map(merge => ({ ...merge })) : [];
+      const snapshot = workbook?.snapshot;
+      if (
+        !snapshot ||
+        !Number.isInteger(snapshot.rows) ||
+        snapshot.rows <= 0 ||
+        snapshot.rows > 1000 ||
+        !Number.isInteger(snapshot.columns) ||
+        snapshot.columns <= 0 ||
+        snapshot.columns > 1000 ||
+        !Array.isArray(snapshot.cells) ||
+        snapshot.cells.length !== snapshot.rows ||
+        !snapshot.cells.every(row => Array.isArray(row) && row.length === snapshot.columns)
+      ) {
+        return false;
+      }
+
+      this.rows = snapshot.rows;
+      this.columns = snapshot.columns;
+      this.cellData = snapshot.cells.map(row => row.map(cell => this.normalizeCell(cell)));
+      this.columnWidths = this.normalizeColumnWidths(snapshot.columnWidths, this.columns);
+      this.mergedCells = Array.isArray(snapshot.mergedCells)
+        ? snapshot.mergedCells.map(merge => ({ ...merge }))
+        : [];
       this.rebuildIndices();
       this.activeCell = {
         row: this.clamp(this.activeCell.row, 0, this.rows - 1),
